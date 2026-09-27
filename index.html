@@ -1,0 +1,2043 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DataLens — Investment Research Platform (Prototype)</title>
+<style>
+/* ==================================================================
+   DATALENS — PROTOTYPE APPLICATION SHELL
+   Design tokens v2 (Signal Blue + Terminal Slate + Tape Gold)
+   Matches design.html. Sample data only — no backend, no live DB.
+   ================================================================== */
+
+:root {
+  --primary-50:#eef4ff; --primary-100:#dbe7ff; --primary-200:#bdd3ff; --primary-300:#90b6ff;
+  --primary-400:#5b90ff; --primary-500:#2962ff; --primary-600:#1e4fd6; --primary-700:#1a3fa8;
+  --primary-800:#16337f; --primary-900:#13285c; --primary-950:#0b1533;
+
+  --secondary-50:#fffaeb; --secondary-100:#fef0c7; --secondary-200:#fde28a; --secondary-300:#fbd04d;
+  --secondary-400:#f5be26; --secondary-500:#e8a90d; --secondary-600:#c78a06;
+  --secondary-700:#9c6a09; --secondary-800:#7d530e; --secondary-900:#684610;
+
+  --success-500:#26a69a; --success-600:#1c8a80; --success-700:#186e67;
+  --danger-500:#ef5350;  --danger-600:#dc3f3c;  --danger-700:#b93330;
+  --warning-500:#ff9800; --warning-600:#e07f00; --warning-700:#b56700;
+  --info-500:#00bcd4;    --info-600:#0097a8;
+
+  --neutral-0:#080a0e; --neutral-50:#0e1117; --neutral-100:#141821; --neutral-200:#1b202b;
+  --neutral-300:#262d3a; --neutral-400:#333b4a; --neutral-500:#4b5565; --neutral-600:#6b7585;
+  --neutral-700:#8b95a5; --neutral-800:#b3bcc9; --neutral-900:#d7dce4; --neutral-950:#f2f4f7;
+
+  --bg:var(--neutral-0); --surface:var(--neutral-100); --surface-raised:var(--neutral-200);
+  --surface-subtle:var(--neutral-50); --surface-muted:var(--neutral-200);
+  --surface-inset:var(--neutral-300); --border:var(--neutral-300); --border-strong:var(--neutral-400);
+  --text-primary:#e8eaf0; --text-secondary:#9aa1b1; --text-muted:#6b7585; --text-inverse:var(--neutral-0);
+
+  --accent:var(--primary-500); --accent-hover:var(--primary-400); --accent-text:var(--primary-400);
+  --accent-bg:rgb(41 98 255 / .14); --accent-border:var(--primary-700);
+  --accent-ring:rgb(41 98 255 / .45); --on-accent:#fff; --on-secondary:#1a1203; --switch-knob:#fff;
+
+  --font-sans:'Inter','Inter var',-apple-system,BlinkMacSystemFont,'Segoe UI Variable Text','Segoe UI',Roboto,system-ui,sans-serif;
+  --font-mono:'JetBrains Mono','IBM Plex Mono','Roboto Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+
+  --text-xs:.6875rem; --text-sm:.8125rem; --text-base:.9375rem; --text-lg:1.0625rem;
+  --text-xl:1.25rem;   --text-2xl:1.5rem; --text-3xl:1.875rem; --text-4xl:2.25rem;
+
+  --space-1:.25rem; --space-2:.5rem; --space-3:.75rem; --space-4:1rem;
+  --space-5:1.25rem; --space-6:1.5rem; --space-8:2rem; --space-10:2.5rem; --space-12:3rem;
+
+  --radius-sm:3px; --radius:6px; --radius-md:8px; --radius-lg:10px; --radius-xl:14px; --radius-full:9999px;
+
+  --shadow-xs:0 1px 2px 0 rgb(0 0 0 / .32);
+  --shadow-sm:0 2px 4px -1px rgb(0 0 0 / .42), 0 1px 2px -1px rgb(0 0 0 / .30);
+  --shadow:0 4px 10px -2px rgb(0 0 0 / .46), 0 2px 4px -2px rgb(0 0 0 / .34);
+  --shadow-md:0 10px 20px -5px rgb(0 0 0 / .52), 0 4px 8px -4px rgb(0 0 0 / .40);
+  --shadow-lg:0 20px 30px -8px rgb(0 0 0 / .58), 0 8px 12px -6px rgb(0 0 0 / .44);
+  --shadow-accent:0 0 0 1px var(--accent-ring), 0 8px 26px -10px var(--accent-ring);
+
+  --ease:cubic-bezier(.4,0,.2,1); --dur-fast:120ms; --dur:180ms; --dur-slow:280ms;
+}
+[data-theme="light"] {
+  --neutral-0:#fff; --neutral-50:#f7f9fc; --neutral-100:#f1f4f9; --neutral-200:#e6eaf2;
+  --neutral-300:#d6dbe6; --neutral-400:#b6bdcc; --neutral-500:#8a92a3; --neutral-600:#656d7e;
+  --neutral-700:#414a5c; --neutral-800:#2a3242; --neutral-900:#151b27; --neutral-950:#080c14;
+  --bg:var(--neutral-100); --surface:#fff; --surface-raised:var(--neutral-50);
+  --surface-subtle:var(--neutral-50); --surface-muted:var(--neutral-200); --surface-inset:var(--neutral-200);
+  --border:var(--neutral-300); --border-strong:var(--neutral-400);
+  --text-primary:#101623; --text-secondary:#4a5364; --text-muted:#767f90; --text-inverse:#fff;
+  --accent:var(--primary-600); --accent-hover:var(--primary-700); --accent-text:var(--primary-700);
+  --accent-bg:var(--primary-50); --accent-border:var(--primary-300); --accent-ring:rgb(41 98 255 / .22);
+  --shadow-xs:0 1px 2px 0 rgb(16 22 35 / .06);
+  --shadow-sm:0 1px 3px 0 rgb(16 22 35 / .09), 0 1px 2px -1px rgb(16 22 35 / .07);
+  --shadow:0 4px 6px -1px rgb(16 22 35 / .11), 0 2px 4px -2px rgb(16 22 35 / .09);
+  --shadow-md:0 10px 15px -3px rgb(16 22 35 / .12), 0 4px 6px -4px rgb(16 22 35 / .09);
+  --shadow-lg:0 20px 25px -5px rgb(16 22 35 / .14), 0 8px 10px -6px rgb(16 22 35 / .09);
+}
+[data-theme="light"] .badge-success{color:var(--success-700)}
+[data-theme="light"] .badge-warning{color:var(--warning-700)}
+[data-theme="light"] .badge-danger{color:var(--danger-700)}
+[data-theme="light"] .badge-info{color:var(--primary-700)}
+[data-theme="light"] .prov-reported{color:var(--success-700)}
+[data-theme="light"] .prov-market{color:var(--warning-700)}
+[data-theme="light"] .alert-warn{color:var(--warning-700)}
+
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font-sans);font-size:var(--text-base);line-height:1.6;color:var(--text-primary);
+  background:var(--bg);-webkit-font-smoothing:antialiased;font-feature-settings:'cv11','ss01';
+  transition:background var(--dur-slow) var(--ease),color var(--dur-slow) var(--ease)}
+.evidence-value,td.num,.t-mono,.ticker-price,.kpi-val,.m-val{font-variant-numeric:tabular-nums}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--neutral-400);border-radius:var(--radius-full);border:2px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:var(--neutral-500)}
+.mono{font-family:var(--font-mono)}
+.up{color:var(--success-500)} .down{color:var(--danger-500)}
+.micro{font-family:var(--font-mono);font-size:var(--text-xs);font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted)}
+
+/* ===== BUTTONS ===== */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);font-family:inherit;
+  font-size:var(--text-sm);font-weight:600;letter-spacing:-.005em;padding:var(--space-2) var(--space-4);
+  border-radius:var(--radius);border:1px solid transparent;cursor:pointer;white-space:nowrap;text-decoration:none;
+  transition:background var(--dur) var(--ease),border-color var(--dur) var(--ease),color var(--dur) var(--ease),
+    transform var(--dur-fast) var(--ease),box-shadow var(--dur) var(--ease)}
+.btn:active{transform:translateY(1px)} .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.btn-primary{background:var(--accent);color:var(--on-accent)}
+.btn-primary:hover{background:var(--accent-hover);box-shadow:var(--shadow-sm)}
+.btn-secondary{background:var(--secondary-500);color:var(--on-secondary)}
+.btn-secondary:hover{background:var(--secondary-400);box-shadow:var(--shadow-sm)}
+.btn-outline{background:transparent;color:var(--accent-text);border-color:var(--accent-border)}
+.btn-outline:hover{background:var(--accent-bg);border-color:var(--accent)}
+.btn-ghost{background:transparent;color:var(--text-secondary)}
+.btn-ghost:hover{background:var(--surface-muted);color:var(--text-primary)}
+.btn-sm{font-size:var(--text-xs);padding:3px var(--space-3)}
+.btn-lg{font-size:var(--text-base);padding:var(--space-3) var(--space-6)}
+.btn-block{width:100%}
+.btn-danger{background:var(--danger-500);color:#fff} .btn-danger:hover{background:var(--danger-600)}
+
+/* ===== BADGES / PROVENANCE / PILLS ===== */
+.badge{display:inline-flex;align-items:center;gap:var(--space-1);font-family:var(--font-mono);font-size:var(--text-xs);
+  font-weight:600;padding:2px var(--space-2);border-radius:var(--radius-sm);border:1px solid;white-space:nowrap}
+.badge-success{background:rgb(38 166 154 / .12);color:var(--success-500);border-color:rgb(38 166 154 / .3)}
+.badge-warning{background:rgb(255 152 0 / .12);color:var(--warning-500);border-color:rgb(255 152 0 / .3)}
+.badge-danger{background:rgb(239 83 80 / .12);color:var(--danger-500);border-color:rgb(239 83 80 / .3)}
+.badge-info{background:var(--accent-bg);color:var(--accent-text);border-color:var(--accent-border)}
+.badge-neutral{background:var(--surface-muted);color:var(--text-secondary);border-color:var(--border-strong)}
+.badge-dot{width:6px;height:6px;border-radius:50%;flex:none}
+.prov{display:inline-flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:10px;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;padding:2px 5px;border-radius:3px;border:1px solid}
+.prov-reported{background:rgb(38 166 154 / .12);color:var(--success-500);border-color:rgb(38 166 154 / .3)}
+.prov-calc{background:var(--accent-bg);color:var(--accent-text);border-color:var(--accent-border)}
+.prov-market{background:rgb(255 152 0 / .12);color:var(--warning-500);border-color:rgb(255 152 0 / .3)}
+.pill{display:inline-flex;align-items:center;gap:var(--space-1);font-family:var(--font-mono);font-size:var(--text-xs);
+  padding:2px var(--space-2);border-radius:var(--radius-sm);background:var(--surface-muted);
+  color:var(--text-secondary);border:1px solid var(--border);white-space:nowrap}
+.citation{display:inline-flex;align-items:center;font-family:var(--font-mono);font-size:10px;font-weight:600;
+  color:var(--accent-text);background:var(--accent-bg);border:1px solid var(--accent-border);padding:1px 5px;
+  border-radius:3px;cursor:pointer;transition:background var(--dur) var(--ease)}
+.citation:hover{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+
+/* ===== APP HEADER ===== */
+.app-header{position:sticky;top:0;z-index:40;background:var(--surface);border-bottom:1px solid var(--border)}
+.app-bar{max-width:1560px;margin:0 auto;padding:0 var(--space-6);height:58px;display:flex;align-items:center;gap:var(--space-5)}
+.brand{display:flex;align-items:center;gap:var(--space-2);font-weight:800;font-size:var(--text-lg);letter-spacing:-.03em;flex:none}
+.brand-mark{width:30px;height:30px;border-radius:var(--radius);display:grid;place-items:center;color:#fff;
+  font-size:var(--text-xs);font-weight:800;letter-spacing:-.02em;
+  background:linear-gradient(145deg,var(--primary-400),var(--primary-600) 55%,var(--secondary-500));box-shadow:var(--shadow-accent)}
+.co-switch{display:flex;align-items:center;gap:var(--space-2);background:var(--surface-raised);
+  border:1px solid var(--border-strong);border-radius:var(--radius);padding:3px var(--space-2) 3px 3px;cursor:pointer;
+  transition:border-color var(--dur) var(--ease)}
+.co-switch:hover{border-color:var(--accent)}
+.co-tick{background:var(--surface-inset);color:var(--secondary-400);border-radius:var(--radius-sm);padding:3px 7px;
+  font-family:var(--font-mono);font-size:var(--text-xs);font-weight:700;letter-spacing:.04em}
+.co-name{font-size:var(--text-sm);font-weight:600}
+.co-caret{color:var(--text-muted);font-size:10px}
+.app-nav{display:flex;gap:2px;margin-left:auto;overflow-x:auto;flex:none}
+.app-nav button{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--text-muted);
+  font-family:inherit;font-size:var(--text-sm);font-weight:500;padding:var(--space-2) var(--space-3);
+  cursor:pointer;white-space:nowrap;margin-bottom:-1px;transition:color var(--dur) var(--ease),border-color var(--dur) var(--ease)}
+.app-nav button:hover{color:var(--accent-text);border-bottom-color:var(--accent-border)}
+.app-nav button.on{color:var(--text-primary);border-bottom-color:var(--accent);font-weight:600}
+.icon-btn{width:32px;height:32px;display:grid;place-items:center;background:transparent;border:1px solid var(--border-strong);
+  border-radius:var(--radius);color:var(--text-secondary);cursor:pointer;flex:none;font-size:14px;
+  transition:background var(--dur) var(--ease),color var(--dur) var(--ease)}
+.icon-btn:hover{background:var(--accent-bg);color:var(--accent-text);border-color:var(--accent-border)}
+
+/* ===== TICKER TAPE ===== */
+.ticker-tape{position:relative;overflow:hidden;background:var(--bg);border-bottom:1px solid var(--border);height:30px}
+.ticker-tape::before,.ticker-tape::after{content:'';position:absolute;top:0;bottom:0;width:60px;z-index:2;pointer-events:none}
+.ticker-tape::before{left:0;background:linear-gradient(90deg,var(--bg),transparent)}
+.ticker-tape::after{right:0;background:linear-gradient(270deg,var(--bg),transparent)}
+.ticker-track{display:flex;width:max-content;animation:scroll 46s linear infinite}
+.ticker-tape:hover .ticker-track{animation-play-state:paused}
+@keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.ticker-item{display:inline-flex;align-items:baseline;gap:var(--space-2);padding:var(--space-1) var(--space-5);
+  font-size:var(--text-xs);white-space:nowrap;border-right:1px solid var(--border);height:30px}
+.ticker-sym{font-family:var(--font-mono);font-weight:600;color:var(--text-secondary)}
+.ticker-price{font-family:var(--font-mono);font-weight:600}
+.ticker-delta{font-family:var(--font-mono);font-weight:600}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--success-500);box-shadow:0 0 0 3px rgb(38 166 154 / .18);
+  animation:pulse 2.4s var(--ease) infinite;flex:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ===== LAYOUT ===== */
+.shell{max-width:1560px;margin:0 auto;padding:var(--space-6);display:grid;grid-template-columns:270px 1fr;gap:var(--space-6);align-items:start}
+.sidebar{position:sticky;top:88px;display:flex;flex-direction:column;gap:var(--space-4)}
+.content{min-width:0;display:flex;flex-direction:column;gap:var(--space-5)}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.panel-head{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--border);display:flex;
+  align-items:center;justify-content:space-between;gap:var(--space-3);flex-wrap:wrap}
+.panel-head h2{font-size:var(--text-lg);font-weight:650;letter-spacing:-.015em}
+.panel-head h3{font-size:var(--text-sm);font-weight:600}
+.panel-body{padding:var(--space-5)}
+.page-head{margin-bottom:var(--space-2)}
+.page-head h1{font-size:var(--text-3xl);font-weight:700;letter-spacing:-.03em;line-height:1.15}
+.page-head p{font-size:var(--text-sm);color:var(--text-secondary);margin-top:var(--space-1)}
+
+/* ===== CO SUMMARY HEADER ===== */
+.co-hero{background:linear-gradient(135deg,var(--surface-raised),var(--surface));border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:var(--space-5)}
+.co-hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-4);flex-wrap:wrap;margin-bottom:var(--space-4)}
+.co-hero h1{font-size:var(--text-2xl);font-weight:700;letter-spacing:-.025em}
+.co-meta{font-size:var(--text-xs);color:var(--text-muted);margin-top:2px}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;background:var(--border);
+  border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden}
+.kpi{background:var(--surface);padding:var(--space-3) var(--space-4)}
+.kpi-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px}
+.kpi-val{font-family:var(--font-mono);font-size:var(--text-lg);font-weight:600;line-height:1.2}
+.kpi-delta{font-family:var(--font-mono);font-size:var(--text-xs);font-weight:600;margin-top:2px}
+
+/* ===== PILLAR GRID ===== */
+.pillar-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:var(--space-4)}
+.pillar{background:var(--surface-raised);border:1px solid var(--border);border-left:3px solid var(--text-muted);
+  border-radius:var(--radius-sm);padding:var(--space-4);transition:border-color var(--dur) var(--ease)}
+.pillar:hover{border-color:var(--border-strong);border-left-color:inherit}
+.p-strong{border-left-color:var(--success-500)} .p-improving{border-left-color:var(--secondary-500)}
+.p-watch{border-left-color:var(--warning-500)} .p-declining{border-left-color:var(--danger-500)}
+.p-nodata{border-left-color:var(--border-strong)}
+.pillar-head{display:flex;justify-content:space-between;align-items:center;gap:var(--space-3);margin-bottom:var(--space-2)}
+.pillar-name{font-family:var(--font-mono);font-size:var(--text-sm);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.pillar-explain{font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:var(--space-3)}
+.evidence-row{display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:center;padding:var(--space-2) var(--space-3);
+  background:var(--surface-subtle);border:1px solid var(--border);border-radius:var(--radius-sm);
+  font-size:var(--text-xs);margin-bottom:var(--space-2)}
+.evidence-value{font-family:var(--font-mono);font-weight:600}
+.evidence-label{color:var(--text-muted)}
+
+/* ===== SIGNALS ===== */
+.signal{background:var(--surface-raised);border:1px solid var(--border);border-left:3px solid var(--warning-500);
+  border-radius:var(--radius-sm);padding:var(--space-4);margin-bottom:var(--space-3)}
+.signal.danger{border-left-color:var(--danger-500)} .signal.ok{border-left-color:var(--success-500)}
+.signal-top{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3);margin-bottom:var(--space-2)}
+.signal-title{font-size:var(--text-base);font-weight:650;letter-spacing:-.01em;margin-bottom:var(--space-1)}
+.signal-detail{font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:var(--space-3)}
+.signal-questions{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+
+/* ===== CHAT ===== */
+.chat-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  display:flex;flex-direction:column;height:640px;overflow:hidden}
+.chat-log{flex:1;overflow-y:auto;padding:var(--space-5);display:flex;flex-direction:column;gap:var(--space-4)}
+.bubble{max-width:84%;padding:var(--space-3) var(--space-4);border-radius:var(--radius-md);font-size:var(--text-sm)}
+.bubble-user{background:var(--accent);color:var(--on-accent);margin-left:auto;border-bottom-right-radius:2px}
+.bubble-ai{background:var(--surface-raised);border:1px solid var(--border-strong);margin-right:auto;
+  border-bottom-left-radius:2px;white-space:pre-wrap}
+.bubble-cites{margin-top:var(--space-3);padding-top:var(--space-2);border-top:1px dashed var(--border-strong);
+  display:flex;flex-wrap:wrap;gap:var(--space-1)}
+.typing{display:flex;gap:4px;padding:var(--space-2) 0}
+.typing span{width:6px;height:6px;border-radius:50%;background:var(--text-muted);animation:bounce 1.3s infinite}
+.typing span:nth-child(2){animation-delay:.18s} .typing span:nth-child(3){animation-delay:.36s}
+@keyframes bounce{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-5px);opacity:1}}
+.chat-input{border-top:1px solid var(--border);padding:var(--space-3) var(--space-4);background:var(--surface-subtle)}
+.chat-input-row{display:flex;gap:var(--space-2);align-items:stretch}
+.input,.select,.textarea{font-family:inherit;font-size:var(--text-sm);color:var(--text-primary);padding:var(--space-2) var(--space-3);
+  border-radius:var(--radius);border:1px solid var(--border-strong);background:var(--surface-raised);width:100%;outline:none;
+  transition:border-color var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
+.input::placeholder,.textarea::placeholder{color:var(--text-muted)}
+.input:focus,.select:focus,.textarea:focus{border-color:var(--accent);background:var(--surface);box-shadow:0 0 0 3px var(--accent-ring)}
+.select{appearance:none;cursor:pointer;padding-right:var(--space-8);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b95a5' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right var(--space-3) center}
+.chat-log{max-width:100%}
+.suggestions{display:flex;flex-wrap:wrap;gap:var(--space-2);margin-bottom:var(--space-3)}
+
+/* ===== TABLES ===== */
+.table-wrap{border:1px solid var(--border);border-radius:var(--radius-md);overflow:auto;background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:var(--text-sm)}
+thead th{background:var(--surface-subtle);text-align:left;font-family:var(--font-mono);font-size:10px;font-weight:600;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);padding:var(--space-3) var(--space-4);
+  border-bottom:1px solid var(--border-strong);white-space:nowrap;position:sticky;top:0;z-index:1}
+tbody td{padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--border)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--surface-subtle)}
+td.num,th.num{font-family:var(--font-mono);font-weight:500;text-align:right}
+th.num{text-align:right}
+tr.self{background:var(--accent-bg)} tr.self:hover{background:rgb(41 98 255 / .2)}
+tr.self td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+
+/* ===== THESIS ===== */
+.thesis-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:var(--space-4)}
+.thesis-col{background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--radius-md);padding:var(--space-4)}
+.thesis-col h4{font-family:var(--font-mono);font-size:var(--text-xs);font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--text-secondary);margin-bottom:var(--space-3);
+  padding-bottom:var(--space-2);border-bottom:1px solid var(--border)}
+.thesis-col textarea{min-height:100px;resize:vertical;background:var(--surface);font-size:var(--text-sm);line-height:1.6}
+.watch{display:flex;flex-wrap:wrap;gap:var(--space-2)}
+.watch-chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-mono);font-size:var(--text-xs);
+  padding:3px var(--space-2);border-radius:var(--radius-sm);border:1px solid var(--border-strong);
+  background:var(--surface-muted);color:var(--text-secondary)}
+.watch-chip.on{border-color:var(--secondary-600);color:var(--secondary-400);background:rgb(232 169 13 / .1)}
+.watch-chip button{background:none;border:none;color:inherit;cursor:pointer;font-size:13px;line-height:1;padding:0;opacity:.6}
+.watch-chip button:hover{opacity:1}
+.version-row{display:flex;justify-content:space-between;align-items:center;padding:var(--space-2) var(--space-3);
+  border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-xs);margin-bottom:var(--space-2);background:var(--surface-raised)}
+
+/* ===== UPLOAD / REPORT LIST ===== */
+.dropzone{border:1px dashed var(--accent-border);border-radius:var(--radius-md);background:var(--accent-bg);
+  padding:var(--space-8);text-align:center;cursor:pointer;transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease)}
+.dropzone:hover{border-color:var(--accent);background:rgb(41 98 255 / .2)}
+.dropzone-icon{width:42px;height:42px;margin:0 auto var(--space-3);background:var(--accent);color:var(--on-accent);
+  border-radius:var(--radius);display:grid;place-items:center;box-shadow:var(--shadow-accent)}
+.progress{height:5px;background:var(--surface-inset);border-radius:var(--radius-full);overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--secondary-500));border-radius:var(--radius-full);
+  transition:width .4s var(--ease)}
+.report-row{display:flex;align-items:center;gap:var(--space-4);padding:var(--space-3) var(--space-4);
+  border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:var(--space-2);background:var(--surface-raised)}
+.report-row.new{border-color:var(--accent-border);background:var(--accent-bg)}
+.file-ico{width:32px;height:32px;flex:none;border-radius:var(--radius-sm);display:grid;place-items:center;
+  background:var(--surface-inset);font-size:10px;font-weight:700;font-family:var(--font-mono);color:var(--text-muted)}
+
+/* ===== CONCEPT EXPLAINER ===== */
+.depth-tabs{display:flex;gap:2px;background:var(--surface-muted);padding:2px;border-radius:var(--radius);margin-bottom:var(--space-3)}
+.depth-tabs button{flex:1;background:transparent;border:none;font-family:inherit;font-size:var(--text-xs);font-weight:600;
+  padding:5px;border-radius:var(--radius-sm);color:var(--text-muted);cursor:pointer;transition:all var(--dur) var(--ease)}
+.depth-tabs button.on{background:var(--surface);color:var(--text-primary);box-shadow:var(--shadow-xs)}
+.concept-body{background:var(--accent-bg);border:1px solid var(--accent-border);border-left:3px solid var(--accent);
+  border-radius:var(--radius-sm);padding:var(--space-4);font-size:var(--text-sm)}
+
+/* ===== DRAWER ===== */
+.scrim{position:fixed;inset:0;background:rgb(0 0 0 / .55);z-index:60;opacity:0;pointer-events:none;
+  transition:opacity var(--dur) var(--ease)}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(460px,100%);background:var(--surface);
+  border-left:1px solid var(--border-strong);z-index:61;transform:translateX(100%);
+  transition:transform var(--dur-slow) var(--ease);display:flex;flex-direction:column;box-shadow:var(--shadow-lg)}
+.drawer.on{transform:translateX(0)}
+.drawer-head{padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:flex-start;gap:var(--space-3)}
+.drawer-body{padding:var(--space-5);overflow-y:auto;flex:1}
+.trace-step{position:relative;padding-left:var(--space-6);padding-bottom:var(--space-5)}
+.trace-step::before{content:'';position:absolute;left:9px;top:16px;bottom:0;width:1px;background:var(--border-strong)}
+.trace-step:last-child::before{display:none}
+.trace-dot{position:absolute;left:0;top:3px;width:19px;height:19px;border-radius:50%;display:grid;place-items:center;
+  background:var(--accent);color:var(--on-accent);font-family:var(--font-mono);font-size:10px;font-weight:700}
+.trace-step:last-child .trace-dot{background:var(--secondary-500);color:var(--on-secondary)}
+.trace-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px}
+.trace-val{font-family:var(--font-mono);font-size:var(--text-base);font-weight:600;margin-bottom:2px}
+.trace-note{font-size:var(--text-xs);color:var(--text-secondary)}
+.calc-box{background:var(--surface-subtle);border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:var(--space-3);font-family:var(--font-mono);font-size:var(--text-xs);line-height:1.9;overflow-x:auto;white-space:pre}
+.alert{display:flex;gap:var(--space-3);padding:var(--space-3) var(--space-4);border-radius:var(--radius-sm);
+  border:1px solid;font-size:var(--text-sm);margin-bottom:var(--space-3)}
+.alert-info{background:var(--accent-bg);border-color:var(--accent-border);color:var(--text-primary)}
+.alert-warn{background:rgb(255 152 0 / .1);border-color:rgb(255 152 0 / .28);color:var(--text-primary)}
+.alert-ok{background:rgb(38 166 154 / .1);border-color:rgb(38 166 154 / .28);color:var(--text-primary)}
+
+/* ===== TOAST ===== */
+.toast{position:fixed;bottom:var(--space-5);left:50%;transform:translate(-50%,140%);z-index:70;
+  background:var(--surface-raised);border:1px solid var(--accent-border);border-radius:var(--radius);
+  padding:var(--space-3) var(--space-5);font-size:var(--text-sm);box-shadow:var(--shadow-lg);
+  transition:transform var(--dur-slow) var(--ease);display:flex;align-items:center;gap:var(--space-2)}
+.toast.on{transform:translate(-50%,0)}
+
+/* ===== UTIL ===== */
+.row{display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap}
+.between{display:flex;align-items:center;justify-content:space-between;gap:var(--space-3);flex-wrap:wrap}
+.stack{display:flex;flex-direction:column;gap:var(--space-3)}
+.two-col{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:var(--space-4)}
+.muted{color:var(--text-muted)} .sec{color:var(--text-secondary)} .small{font-size:var(--text-sm)}
+.xs{font-size:var(--text-xs)} .strong{font-weight:650}
+.divider{height:1px;background:var(--border);margin:var(--space-4) 0}
+.empty{text-align:center;padding:var(--space-12) var(--space-5);color:var(--text-muted)}
+.disclaimer{margin-top:var(--space-8);padding-top:var(--space-4);border-top:1px solid var(--border);
+  font-size:var(--text-xs);color:var(--text-muted);line-height:1.6}
+.disc-logo{display:flex;align-items:center;gap:var(--space-2);font-family:var(--font-mono);font-size:var(--text-xs);
+  letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:var(--space-2)}
+@media(max-width:1080px){.shell{grid-template-columns:1fr}.sidebar{position:static}}
+@media(max-width:720px){
+  .app-bar{padding:0 var(--space-4);gap:var(--space-3)}.co-name{display:none}
+  .shell{padding:var(--space-4)}.page-head h1{font-size:var(--text-2xl)}
+  .bubble{max-width:94%}.panel-body{padding:var(--space-4)}
+}
+@media(prefers-reduced-motion:reduce){.ticker-track{animation:none}.live-dot{animation:none}*{transition-duration:1ms!important}}
+</style>
+</head>
+<body>
+
+<!-- ============ HEADER ============ -->
+<header class="app-header">
+  <div class="app-bar">
+    <div class="brand"><div class="brand-mark">DL</div>DataLens</div>
+
+    <div class="co-switch" id="coSwitch" role="button" tabindex="0" aria-haspopup="listbox" aria-label="Switch company">
+      <span class="co-tick" id="coTick">GTCO</span>
+      <span class="co-name" id="coName">Guaranty Trust Holding</span>
+      <span class="co-caret">▼</span>
+    </div>
+
+    <nav class="app-nav" id="appNav" role="tablist">
+      <button data-view="snapshot" class="on" role="tab">Snapshot</button>
+      <button data-view="chat" role="tab">Ask</button>
+      <button data-view="signals" role="tab">Signals</button>
+      <button data-view="peers" role="tab">Peers</button>
+      <button data-view="changes" role="tab">What Changed</button>
+      <button data-view="thesis" role="tab">My Thesis</button>
+      <button data-view="reports" role="tab">Reports</button>
+    </nav>
+
+    <button class="icon-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle colour theme">◐</button>
+  </div>
+</header>
+
+<!-- ============ TICKER TAPE ============ -->
+<div class="ticker-tape"><div class="ticker-track" id="tape"></div></div>
+
+<!-- ============ APP SHELL ============ -->
+<div class="shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="content" id="content"></main>
+</div>
+
+<!-- ============ COMPANY PICKER ============ -->
+<div class="scrim" id="pickScrim"></div>
+<div class="drawer" id="picker" style="width:min(380px,100%)" role="dialog" aria-label="Select company">
+  <div class="drawer-head">
+    <div><h3 style="font-size:var(--text-lg);font-weight:650">My Companies</h3>
+      <p class="xs muted">Saved workspace — PRD §17</p></div>
+    <button class="icon-btn" data-close="picker" aria-label="Close">✕</button>
+  </div>
+  <div class="drawer-body" id="pickerBody"></div>
+</div>
+
+<!-- ============ EVIDENCE DRAWER ============ -->
+<div class="scrim" id="evScrim"></div>
+<aside class="drawer" id="evDrawer" role="dialog" aria-label="Evidence and traceability">
+  <div class="drawer-head">
+    <div><h3 id="evTitle" style="font-size:var(--text-lg);font-weight:650">Evidence</h3>
+      <p class="xs muted">Insight → Evidence → Calculation → Source</p></div>
+    <button class="icon-btn" data-close="evDrawer" aria-label="Close">✕</button>
+  </div>
+  <div class="drawer-body" id="evBody"></div>
+</aside>
+
+<div class="toast" id="toast"></div>
+
+<footer class="disclaimer" style="max-width:1560px;margin:var(--space-8) auto 0;padding:var(--space-5) var(--space-6) 0">
+  <div class="disc-logo"><span class="live-dot"></span>DataLens — Prototype build · Sample data only · No backend connected</div>
+  <strong>Disclaimer.</strong> DataLens provides research information, not investment advice. Analysis is based on
+  company-reported figures and may contain errors. Nothing here is a recommendation to buy, hold, or sell any security.
+  All figures in this prototype are illustrative sample data for a Nigerian market context, not real reported results.
+  Verify every figure against the source report before making any decision.
+</footer>
+
+<script>
+"use strict";
+/* ==================================================================
+   1. SAMPLE DATA  (₦bn unless noted; illustrative, not real results)
+   ================================================================== */
+const YEARS = [2021, 2022, 2023, 2024, 2025];
+
+const COMPANIES = {
+  GTCO: {
+    ticker:"GTCO", name:"Guaranty Trust Holding Plc", short:"Guaranty Trust",
+    sector:"Financials", industry:"Banking", exchange:"NGX",
+    price:105.00, priceAsOf:"19 Sep 2026", kind:"bank",
+    m:{
+      revenue:[890,1000,1200,1470,1740], netProfit:[250,280,340,420,425],
+      eps:[9.80,10.90,13.20,16.20,16.40], equity:[1500,1700,1900,2000,1840],
+      totalAssets:[3500,4200,4900,5600,6300], ocf:[480,560,640,700,574],
+      capex:[120,140,165,185,210], debt:[380,410,450,520,690], dps:[4.50,5.00,6.00,8.00,8.50],
+      costToIncome:[45.2,46.1,47.0,47.6,48.2], npl:[3.2,3.4,3.6,3.7,3.8], car:[25.1,25.4,25.0,24.9,24.8]
+    },
+    thesis:{ growth:"Revenue growth remains strong and consistent.", profitability:"Margins held above 24% through FY2025.",
+      strength:"Debt remains manageable, though the new USD bond needs watching.", watch:["Operating cash flow","Finance costs","Dividend growth","Cost-to-income"] }
+  },
+  ZNB: {
+    ticker:"ZNB", name:"Zenith Bank Plc", short:"Zenith Bank",
+    sector:"Financials", industry:"Banking", exchange:"NGX",
+    price:42.50, priceAsOf:"19 Sep 2026", kind:"bank",
+    m:{
+      revenue:[780,950,1240,1500,1880], netProfit:[245,292,347,441,520],
+      eps:[3.20,3.80,4.50,5.70,6.70], equity:[1200,1380,1600,1850,2200],
+      totalAssets:[3200,4000,5000,6100,7200], ocf:[380,470,560,640,810],
+      capex:[90,105,125,150,180], debt:[320,360,400,460,520], dps:[2.50,2.80,3.20,3.50,3.85],
+      costToIncome:[52.1,51.0,50.2,49.4,48.8], npl:[3.9,3.8,3.6,3.5,3.4], car:[22.5,22.8,23.1,23.4,23.6]
+    },
+    thesis:{ growth:"Revenue compounding above 20% for four years.", profitability:"Cost discipline improving — cost-to-income falling every year.",
+      strength:"Capital adequacy rising, NPL ratio declining.", watch:["Cost-to-income","NPL ratio","Dividend growth"] }
+  },
+  ACCESS: {
+    ticker:"ACCESS", name:"Access Holdings Plc", short:"Access Holdings",
+    sector:"Financials", industry:"Banking", exchange:"NGX",
+    price:9.85, priceAsOf:"19 Sep 2026", kind:"bank",
+    m:{
+      revenue:[1000,1300,1450,1600,1720], netProfit:[130,190,250,260,215],
+      eps:[0.28,0.40,0.52,0.54,0.44], equity:[700,820,980,1180,1300],
+      totalAssets:[5000,6200,7400,8600,9500], ocf:[260,380,420,400,310],
+      capex:[150,190,220,250,280], debt:[620,700,800,950,1150], dps:[0.08,0.14,0.20,0.18,0.10],
+      costToIncome:[61.2,58.0,55.5,58.4,63.1], npl:[4.5,4.8,5.2,6.5,7.8], car:[19.5,19.1,18.8,18.2,17.4]
+    },
+    thesis:{ growth:"Topline growth has flattened since FY2023.", profitability:"Margins under pressure — provisioning is rising.",
+      strength:"Capital adequacy has fallen below the 20% comfort line.", watch:["NPL ratio","Capital adequacy","Cost-to-income","Profit margin"] }
+  },
+  MTNN: {
+    ticker:"MTNN", name:"MTN Nigeria Communications Plc", short:"MTN Nigeria",
+    sector:"Telecommunications", industry:"Mobile Network Operator", exchange:"NGX",
+    price:285.40, priceAsOf:"19 Sep 2026", kind:"telco",
+    m:{
+      revenue:[1050,1180,1330,1490,1620], netProfit:[95,125,155,178,140],
+      eps:[3.30,4.35,5.40,6.20,4.88], equity:[700,800,900,1020,1080],
+      totalAssets:[1800,2100,2400,2700,2950], ocf:[280,340,400,430,400],
+      capex:[200,240,280,320,350], debt:[400,450,500,600,720], dps:[0,0,0,2.00,2.00],
+      directCost:[480,540,610,670,700], receivables:[120,145,180,220,303],
+      opex:[620,700,790,890,1010]
+    },
+    thesis:{ growth:"Subscriber growth continues but revenue growth is slowing.", profitability:"Opex rising faster than revenue — margin squeeze.",
+      strength:"Leverage has increased steadily alongside expansion capex.", watch:["Receivables","Operating expenses","Free cash flow","Debt"] }
+  }
+};
+const TICKER_ORDER = ["GTCO","ZNB","ACCESS","MTNN"];
+
+/* Page refs used by the traceability layer (illustrative) */
+const PAGE = { is:38, bs:41, cf:52, notes:57, ratios:16, dividend:64, segment:31, equityNote:67 };
+
+/* ==================================================================
+   2. METRIC ENGINE — derives everything from the raw series
+   ================================================================== */
+const last = a => a[a.length-1];
+const prev = a => a[a.length-2];
+const pct = (a,b) => (b===0||a===null) ? null : ((a-b)/Math.abs(b))*100;
+const growth = (arr,i) => i===0 ? null : ((arr[i]-arr[i-1])/arr[i-1])*100;
+const avg = a => a.reduce((s,v)=>s+v,0)/a.length;
+
+function M(t, window_){
+  const c = COMPANIES[t], m = c.m;
+  const n = window_ === 3 ? 3 : 5;
+  const sl = k => m[k].slice(-n);
+  const idx = { first:n-1, last:n-1 };
+  const netMargin = m.revenue.map((r,i)=> m.netProfit[i]/r*100);
+  const roe = m.netProfit.map((p,i)=> p/((m.equity[i]+m.equity[Math.max(0,i-1)])/2)*100);
+  const roa = m.netProfit.map((p,i)=> p/((m.totalAssets[i]+m.totalAssets[Math.max(0,i-1)])/2)*100);
+  const fcf = m.ocf.map((o,i)=> o-m.capex[i]);
+  const payout = m.eps.map((e,i)=> e>0 ? m.dps[i]/e*100 : null);
+  const grossMargin = m.directCost ? m.revenue.map((r,i)=>(r-m.directCost[i])/r*100) : null;
+  const revGrowth = m.revenue.map((_,i)=>growth(m.revenue,i));
+  const shares = m.netProfit[4]/m.eps[4];
+  const bvps = m.equity[4]/shares;
+  return {
+    n, netMargin, roe, roa, fcf, payout, grossMargin, revGrowth, shares, bvps,
+    pe: c.price/m.eps[4], pb: c.price/bvps, divYield: m.dps[4]/c.price*100,
+    d2e: m.debt[4]/m.equity[4]*100,
+    cashConv: m.ocf[4]/m.netProfit[4],
+    ocfGrowth: pct(m.ocf[3], m.ocf[4]),
+    npGrowth: pct(m.netProfit[3], m.netProfit[4]),
+    revYoy: growth(m.revenue,4),
+    epsYoy: growth(m.eps,4),
+    marginDelta: netMargin[4]-netMargin[3],
+    roeDelta: roe[4]-roe[3],
+    roaDelta: roa[4]-roa[3],
+    fcfDelta: pct(fcf[3], fcf[4]),
+    dpsGrowth: m.dps[3]>0 ? pct(m.dps[3], m.dps[4]) : null,
+    payoutLast: payout[4],
+    sl
+  };
+}
+
+/* Number formatting */
+const Naira = '₦';
+function bn(v){
+  const a = Math.abs(v);
+  if (a >= 1000) return Naira + (v/1000).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',') + 'T';
+  if (a >= 1)     return Naira + v.toFixed(0) + 'B';
+  return Naira + v.toFixed(2) + 'M';
+}
+const pctS = v => (v===null||v===undefined) ? '—' : (v>=0?'+':'') + v.toFixed(1) + '%';
+const ppS  = v => (v>=0?'+':'') + v.toFixed(1) + 'pp';
+const xS   = v => v.toFixed(1) + '×';
+
+/* ==================================================================
+   3. STATUS CLASSIFICATION  (PRD §6 — configurable thresholds)
+   ================================================================== */
+function trendStatus(d, tolerance){
+  if (d === null || d === undefined) return {k:'nodata', label:'Insufficient Data', badge:'neutral'};
+  const t = tolerance ?? 2;
+  if (d > 8)  return {k:'strong',    label:'Strong & Improving', badge:'success'};
+  if (d >  t)  return {k:'improving', label:'Improving',           badge:'success'};
+  if (d < -8)  return {k:'declining', label:'Deteriorating',       badge:'danger'};
+  if (d < -t)  return {k:'watch',     label:'Requires Investigation', badge:'warning'};
+  return {k:'stable', label:'Stable', badge:'neutral'};
+}
+const BADGE = { success:'badge-success', warning:'badge-warning', danger:'badge-danger',
+                info:'badge-info', neutral:'badge-neutral' };
+const DOT   = { success:'dot-success', warning:'dot-warning', danger:'dot-danger', neutral:'dot-neutral' };
+
+/* ==================================================================
+   4. SVG CHARTS — zero dependencies
+   ================================================================== */
+function sparkline(vals, color, w, h){
+  w = w||70; h = h||22;
+  if (!vals || vals.length<2) return '';
+  const mn = Math.min(...vals), mx = Math.max(...vals), sp = (mx-mn)||1;
+  const pts = vals.map((v,i)=>{
+    const x = 2 + (i/(vals.length-1))*(w-4);
+    const y = h-3 - ((v-mn)/sp)*(h-7);
+    return x.toFixed(1)+','+y.toFixed(1);
+  }).join(' ');
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">
+    <polyline fill="none" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="${pts}"/></svg>`;
+}
+
+function lineChart(labels, series, opts){
+  opts = opts||{};
+  const W = 640, H = opts.h || 200, PL = 46, PR = 14, PT = 14, PB = 26;
+  const all = series.flatMap(s=>s.values.filter(v=>v!==null));
+  if (!all.length) return '';
+  let mn = Math.min(...all), mx = Math.max(...all);
+  if (mn>0) mn = 0;
+  const pad = (mx-mn)*0.12 || 1; mx += pad; if (mn<0) mn -= pad;
+  const iw = W-PL-PR, ih = H-PT-PB;
+  const X = i => PL + (labels.length<2?iw/2:(i/(labels.length-1))*iw);
+  const Y = v => PT + ih - ((v-mn)/(mx-mn))*ih;
+  const grid = 4;
+  let g='';
+  for (let i=0;i<=grid;i++){
+    const v = mn + (mx-mn)*(i/grid), y = Y(v);
+    g += `<line x1="${PL}" y1="${y.toFixed(1)}" x2="${W-PR}" y2="${y.toFixed(1)}" stroke="var(--border)" stroke-width="1"/>
+          <text x="${PL-8}" y="${(y+3.5).toFixed(1)}" text-anchor="end" font-size="9" font-family="var(--font-mono)" fill="var(--text-muted)">${opts.fmtY?opts.fmtY(v):Math.round(v)}</text>`;
+  }
+  let s='';
+  series.forEach(sr=>{
+    const clean = sr.values.map(v=>v===null?null:v);
+    const segs=[]; let cur=[];
+    clean.forEach((v,i)=>{ if(v===null){ if(cur.length) segs.push(cur); cur=[]; } else cur.push([X(i),Y(v)]); });
+    if(cur.length) segs.push(cur);
+    segs.forEach(seg=>{
+      s += `<polyline fill="none" stroke="${sr.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              points="${seg.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}"/>`;
+      seg.forEach((p,i)=>{ s += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3" fill="var(--surface)" stroke="${sr.color}" stroke-width="2"/>`; });
+    });
+  });
+  let xl='';
+  labels.forEach((l,i)=>{ xl += `<text x="${X(i).toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--text-muted)">${l}</text>`; });
+  let lg='';
+  series.forEach((sr,i)=>{
+    const lx = PL + i*130;
+    lg += `<line x1="${lx}" y1="${PT-4}" x2="${lx+14}" y2="${PT-4}" stroke="${sr.color}" stroke-width="2"/>
+           <text x="${lx+19}" y="${PT-1}" font-size="10" fill="var(--text-secondary)">${sr.label}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img" aria-label="Trend chart">
+    <rect x="${PL}" y="${PT}" width="${iw}" height="${ih}" fill="var(--surface-subtle)" rx="4"/>${g}${s}${xl}${lg}</svg>`;
+}
+
+function barChart(labels, values, color, fmt){
+  const W=640, H=200, PL=46, PR=14, PT=16, PB=30;
+  const iw=W-PL-PR, ih=H-PT-PB;
+  const mx = Math.max(...values)*1.15, bw = iw/labels.length;
+  let out = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img" aria-label="Bar chart">`;
+  [0,.25,.5,.75,1].forEach(f=>{
+    const y = PT+ih-(f*ih);
+    out += `<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="var(--border)" stroke-width="1"/>
+            <text x="${PL-8}" y="${y+3.5}" text-anchor="end" font-size="9" font-family="var(--font-mono)" fill="var(--text-muted)">${fmt?fmt(mx*f):Math.round(mx*f)}</text>`;
+  });
+  values.forEach((v,i)=>{
+    const h = (v/mx)*ih, x = PL+i*bw+bw*0.22, y = PT+ih-h, w = bw*0.56;
+    out += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" fill="${color}" rx="2" opacity=".85"/>`;
+    out += `<text x="${(x+w/2).toFixed(1)}" y="${H-10}" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--text-muted)">${labels[i]}</text>`;
+    out += `<text x="${(x+w/2).toFixed(1)}" y="${(y-5).toFixed(1)}" text-anchor="middle" font-size="10" font-family="var(--font-mono)" fill="var(--text-secondary)">${fmt?fmt(v):v}</text>`;
+  });
+  return out+`</svg>`;
+}
+
+/* ==================================================================
+   5. STATE
+   ================================================================== */
+const state = {
+  ticker:'GTCO',
+  view:'snapshot',
+  window:5,
+  concept:'roe',
+  conceptDepth:'standard',
+  chat:{ GTCO:[], ZNB:[], ACCESS:[], MTNN:[] },
+  chatDraft:'',
+  processing:false,
+  progress:0,
+  uploadStep:'',
+  thesisDirty:false
+};
+
+/* thesis persisted per company */
+function thesisKey(t){ return 'datalens.thesis.'+t; }
+function loadThesis(t){
+  try { const raw = localStorage.getItem(thesisKey(t)); if (raw) return JSON.parse(raw); } catch(e){}
+  return JSON.parse(JSON.stringify(COMPANIES[t].thesis));
+}
+function saveThesis(t){
+  try { localStorage.setItem(thesisKey(t), JSON.stringify(loadThesis(t))); } catch(e){}
+  toast('Thesis saved to this browser');
+}
+
+/* ==================================================================
+   6. EVIDENCE / TRACEABILITY (PRD §7)
+   ================================================================== */
+function ev(company, metricKey, label, valueText, calc, srcPage, note){
+  return { company, metricKey, label, valueText, calc, srcPage, note };
+}
+function openEvidence(e){
+  const c = COMPANIES[e.company];
+  document.getElementById('evTitle').textContent = e.label;
+  const prov = e.metricKey === 'price' || e.metricKey==='pe' || e.metricKey==='pb' || e.metricKey==='divYield'
+    ? 'market' : (e.calc ? 'calc' : 'reported');
+  const provLabel = { market:'Market data', calc:'Calculated', reported:'Company-reported' }[prov];
+  const srcBlock = prov === 'market'
+    ? `<div class="trace-step"><div class="trace-dot">5</div>
+         <div class="trace-label">Source</div>
+         <div class="trace-val">External market feed</div>
+         <div class="trace-note">Share price as of ${c.priceAsOf}. NGX-listed, prices in ${Naira}. Not a company-reported figure — see the Market data provenance label.</div></div>`
+    : `<div class="trace-step"><div class="trace-dot">5</div>
+         <div class="trace-label">Source</div>
+         <div class="trace-val">${c.ticker} ${YEARS[4]} Annual Report — page ${e.srcPage}</div>
+         <div class="trace-note">${e.note || 'Value as presented in the filed financial statements.'}</div></div>`;
+
+  document.getElementById('evBody').innerHTML = `
+    <div class="row" style="margin-bottom:var(--space-4)">
+      <span class="prov prov-${prov}">${provLabel}</span>
+      <span class="pill">${c.ticker}</span><span class="pill">FY${YEARS[4]}</span>
+    </div>
+    <div class="alert alert-info" style="font-size:var(--text-xs)">
+      <span>🔗</span><div>Every figure in DataLens traces back through this chain. Nothing is asserted without a source.</div>
+    </div>
+    <div class="trace-step"><div class="trace-dot">1</div>
+      <div class="trace-label">Insight</div>
+      <div class="trace-val">${e.label}</div>
+      <div class="trace-note">Status, evidence and explanation are presented together — never a bare number.</div></div>
+    <div class="trace-step"><div class="trace-dot">2</div>
+      <div class="trace-label">Underlying figures</div>
+      <div class="trace-val">${e.valueText}</div>
+      <div class="trace-note">Raw values as extracted from the report, in ${Naira} billions unless stated.</div></div>
+    <div class="trace-step"><div class="trace-dot">3</div>
+      <div class="trace-label">Calculation</div>
+      <div class="calc-box">${e.calc || 'Reported directly — no calculation required.'}</div></div>
+    <div class="trace-step"><div class="trace-dot">4</div>
+      <div class="trace-label">Interpretation</div>
+      <div class="trace-val" style="font-family:var(--font-sans);font-size:var(--text-sm);font-weight:400">${e.note||''}</div></div>
+    ${srcBlock}
+    <div class="divider"></div>
+    <button class="btn btn-outline btn-block" data-ask="${e.label.replace(/"/g,'')}">Ask about this in conversation →</button>`;
+  document.getElementById('evScrim').classList.add('on');
+  document.getElementById('evDrawer').classList.add('on');
+}
+document.getElementById('evBody').addEventListener('click', e=>{
+  const b = e.target.closest('[data-ask]'); if (!b) return;
+  closeDrawers(); state.view='chat'; setView('chat');
+  setTimeout(()=>{ ask(b.dataset.ask); }, 220);
+});
+
+/* ==================================================================
+   7. CONCEPT EXPLAINER (PRD §16)
+   ================================================================== */
+const CONCEPTS = {
+  roe:{ name:'Return on Equity (ROE)',
+    quick:'Profit generated per naira of shareholder equity.',
+    standard:'ROE shows how efficiently a company turns shareholders\' money into profit. A 23% ROE means ₦23 of profit for every ₦100 of equity.',
+    deep:(c,x)=>`ROE = Net profit ÷ Average shareholders' equity\n\nFY2025: ${bn(x.netMargin? c.m.netProfit[4]:0)}\nNet profit         ${bn(c.m.netProfit[4])}   (p.${PAGE.is})\nEquity FY2024      ${bn(c.m.equity[3])}   (p.${PAGE.bs})\nEquity FY2025      ${bn(c.m.equity[4])}   (p.${PAGE.bs})\nAverage equity     ${bn((c.m.equity[3]+c.m.equity[4])/2)}\n\nCalculation\n${bn(c.m.netProfit[4])} ÷ ${bn((c.m.equity[3]+c.m.equity[4])/2)} = ${x.roe[4].toFixed(1)}%\n\n5-year trend: ${x.roe.map(v=>v.toFixed(1)+'%').join(' → ')}\n\nRelevance to ${c.ticker}: ${x.roeDelta>0?'improving':'weakening'} ${Math.abs(x.roeDelta).toFixed(1)}pp year-on-year. Compare against the peer average before concluding.`
+  },
+  fcf:{ name:'Free Cash Flow',
+    quick:'Cash left after the company spends on capital investment.',
+    standard:'Free cash flow is the cash a business actually generates after buying property, plant and equipment — the money available to shareholders and lenders.',
+    deep:(c,x)=>`FCF = Operating cash flow − Capital expenditure\n\nFY2025\nOperating cash flow   ${bn(c.m.ocf[4])}   (p.${PAGE.cf})\nCapital expenditure   ${bn(c.m.capex[4])}   (p.${PAGE.cf})\nFree cash flow        ${bn(x.fcf[4])}\n\nChange YoY: ${pctS(x.fcfDelta)}\n5-year series: ${x.fcf.map(v=>bn(v)).join(' → ')}\n\nRelevance to ${c.ticker}: FCF ${x.fcfDelta<0?'fell':'rose'} while ${x.npGrowth>=0?'reported profit':'profit'} ${x.npGrowth>=0?'grew':'declined'} ${pctS(x.npGrowth)}. ${x.fcfDelta<0&&x.npGrowth>=0?'This divergence usually points to working capital absorbing cash — worth investigating receivables and inventory.':'Cash generation is tracking reported profit closely.'}`
+  },
+  ocf:{ name:'Operating Cash Flow',
+    quick:'Cash generated by the core business before financing and investment.',
+    standard:'Operating cash flow shows whether the business actually converts its accounting profit into real cash, or whether the profit is still stuck in receivables and inventory.',
+    deep:(c,x)=>`Operating cash flow (p.${PAGE.cf})\n\n5-year series:\n${YEARS.map((y,i)=>`FY${y}   ${bn(c.m.ocf[i])}`).join('\n')}\n\nCash conversion = OCF ÷ Net profit\nFY2025: ${bn(c.m.ocf[4])} ÷ ${bn(c.m.netProfit[4])} = ${x.cashConv.toFixed(2)}×\n\n5-year conversion: ${c.m.ocf.map((o,i)=>(o/c.m.netProfit[i]).toFixed(2)+'×').join(' → ')}\n\nRelevance: conversion ${x.cashConv<1.5?'is low for a mature operator — a large share of profit is not converting to cash':'is healthy, meaning reported profit is broadly backed by cash'}`
+  },
+  ebitda:{ name:'Debt-to-Equity',
+    quick:'How much the company owes for every naira of equity.',
+    standard:'Debt-to-equity compares total borrowings with shareholder equity. Above 1.0 means creditors fund more of the business than owners do.',
+    deep:(c,x)=>`Debt-to-equity = Total debt ÷ Shareholders' equity\n\nFY2025\nTotal debt    ${bn(c.m.debt[4])}   (p.${PAGE.bs}, Note 18 — p.${PAGE.equityNote})\nEquity        ${bn(c.m.equity[4])}   (p.${PAGE.bs})\n\nCalculation: ${bn(c.m.debt[4])} ÷ ${bn(c.m.equity[4])} = ${x.d2e.toFixed(2)}×  (${x.d2e.toFixed(1)}%)\n\n5-year series: ${c.m.debt.map((d,i)=>(d/c.m.equity[i]).toFixed(2)).join(' → ')}\n\nDebt grew ${pctS(pct(c.m.debt[3],c.m.debt[4]))} YoY while earnings grew ${pctS(x.npGrowth)}.\n${pct(c.m.debt[3],c.m.debt[4])>x.npGrowth?'⚠ Debt is growing faster than earnings — this is the exact condition worth investigating.':''}`
+  },
+  pe:{ name:'P/E Ratio',
+    quick:'Share price divided by earnings per share.',
+    standard:'The P/E ratio shows how much you pay for each naira of profit. Lower is not automatically better — it depends on whether the profit is durable.',
+    deep:(c,x)=>`P/E = Share price ÷ Earnings per share\n\nFY2025\nShare price    ${Naira}${c.price.toFixed(2)}   (market data, ${c.priceAsOf})\nEPS            ${Naira}${c.eps.toFixed(2)}   (p.${PAGE.is})\n\nCalculation: ${Naira}${c.price.toFixed(2)} ÷ ${Naira}${c.eps.toFixed(2)} = ${xS(x.pe)}\n\nEPS 5-year series: ${c.m.eps.map(v=>v.toFixed(2)).join(' → ')}\n\nCaveat: this is MARKET data, not company-reported. A falling P/E driven by a falling price is not the same as a rising P/E driven by growth. Always check which one moved.`
+  }
+};
+
+/* ==================================================================
+   8. SIGNAL ENGINE (PRD §12) — pure functions over the series
+   ================================================================== */
+function computeSignals(t){
+  const c = COMPANIES[t], x = M(t), out = [];
+  const add = o => out.push(o);
+
+  /* receivables vs revenue */
+  if (c.m.receivables){
+    const r = pct(c.m.receivables[3], c.m.receivables[4]);
+    const v = growth(c.m.revenue,4);
+    if (r > v*1.5)
+      add({ sev:'danger', title:`Receivables up ${r.toFixed(0)}% while revenue up only ${v.toFixed(0)}%`,
+        detail:`Receivables moved ${bn(c.m.receivables[3])} → ${bn(c.m.receivables[4])} over FY2025, against revenue ${bn(c.m.revenue[3])} → ${bn(c.m.revenue[4])}. The gap may indicate slower collection or looser credit terms.`,
+        figs:[[Naira+bn(c.m.receivables[4]),'FY2025 receivables','p.'+PAGE.notes],[pctS(r),'YoY change','p.'+PAGE.notes]],
+        qs:['Why did receivables increase?','What are receivable days?','How does this compare with peers?'] });
+  }
+
+  /* cash flow vs profit */
+  if (x.ocfGrowth < 0 && x.npGrowth >= 0)
+    add({ sev:'warn', title:`Operating cash flow fell ${Math.abs(x.ocfGrowth).toFixed(0)}% while profit held`,
+      detail:`Net profit was ${x.npGrowth>=0?'up':'down'} ${pctS(x.npGrowth)} to ${bn(c.m.netProfit[4])}, but operating cash flow declined from ${bn(c.m.ocf[3])} to ${bn(c.m.ocf[4])}. The divergence usually means working capital absorbed cash.`,
+      figs:[[bn(c.m.ocf[4]),'FY2025 OCF','p.'+PAGE.cf],[bn(c.m.netProfit[4]),'FY2025 net profit','p.'+PAGE.is]],
+      qs:['Why did operating cash flow decline?','What are the working capital movements?','Is free cash flow still positive?'] });
+
+  /* debt vs earnings */
+  const dG = pct(c.m.debt[3], c.m.debt[4]);
+  if (dG > Math.max(10, x.npGrowth))
+    add({ sev:'warn', title:`Debt grew ${dG.toFixed(0)}%, faster than earnings ${pctS(x.npGrowth)}`,
+      detail:`Total debt increased ${bn(c.m.debt[3])} → ${bn(c.m.debt[4])}. Debt-to-equity is now ${x.d2e.toFixed(2)}×. Leverage rising faster than profit is a condition that usually deserves explanation.`,
+      figs:[[bn(c.m.debt[4]),'FY2025 total debt','p.'+PAGE.bs],[x.d2e.toFixed(2)+'×','Debt / equity','p.'+PAGE.bs]],
+      qs:['Why did debt increase?','What is the debt maturity profile?','Is interest coverage still comfortable?'] });
+
+  /* margin compression */
+  if (x.marginDelta < -1)
+    add({ sev:'danger', title:`Net margin fell ${Math.abs(x.marginDelta).toFixed(1)}pp to ${x.netMargin[4].toFixed(1)}%`,
+      detail:`Net margin declined from ${x.netMargin[3].toFixed(1)}% to ${x.netMargin[4].toFixed(1)}%. For a bank this usually reflects provisioning or cost growth outpacing revenue.`,
+      figs:[[x.netMargin[4].toFixed(1)+'%','FY2025 net margin','p.'+PAGE.ratios],[ppS(x.marginDelta),'YoY change','p.'+PAGE.ratios]],
+      qs:['Why did profitability decline?','What drove the cost increase?','How does the margin compare with peers?'] });
+
+  /* cost-to-income deterioration */
+  if (c.m.costToIncome && pct(c.m.costToIncome[3],c.m.costToIncome[4]) > 0)
+    add({ sev:'warn', title:`Cost-to-income ratio worsened to ${c.m.costToIncome[4].toFixed(1)}%`,
+      detail:`Cost-to-income moved ${c.m.costToIncome[3].toFixed(1)}% → ${c.m.costToIncome[4].toFixed(1)}%. A rising ratio means operating costs are growing faster than revenue.`,
+      figs:[[c.m.costToIncome[4].toFixed(1)+'%','FY2025 cost / income','p.'+PAGE.ratios],[ppS(c.m.costToIncome[4]-c.m.costToIncome[3]),'YoY change','p.'+PAGE.ratios]],
+      qs:['Which expense categories grew most?','What did management say about costs?'] });
+
+  /* NPL spike */
+  if (c.m.npl && pct(c.m.npl[3],c.m.npl[4]) > 15)
+    add({ sev:'danger', title:`Non-performing loan ratio jumped ${ppS(c.m.npl[4]-c.m.npl[3])} to ${c.m.npl[4].toFixed(1)}%`,
+      detail:`NPL moved ${c.m.npl[3].toFixed(1)}% → ${c.m.npl[4].toFixed(1)}%. Rising NPLs usually precede provisioning increases, which flow straight into profit.`,
+      figs:[[c.m.npl[4].toFixed(1)+'%','FY2025 NPL ratio','p.'+PAGE.ratios],[ppS(c.m.npl[4]-c.m.npl[3]),'YoY change','p.'+PAGE.ratios]],
+      qs:['What drove the increase in NPLs?','How much was provisioned?'] });
+
+  /* capital adequacy */
+  if (c.m.car && c.m.car[4] < 20)
+    add({ sev:'danger', title:`Capital adequacy fell to ${c.m.car[4].toFixed(1)}%`,
+      detail:`CAR declined ${c.m.car[0].toFixed(1)}% → ${c.m.car[4].toFixed(1)}% over five years and now sits below the 20% level most observers treat as comfortable.`,
+      figs:[[c.m.car[4].toFixed(1)+'%','FY2025 CAR','p.'+PAGE.ratios],[ppS(c.m.car[4]-c.m.car[0]),'Change since FY2021','p.'+PAGE.ratios]],
+      qs:['How is capital being raised?','What is the regulatory minimum?'] });
+
+  /* opex vs revenue (telco) */
+  if (c.m.opex){
+    const o = growth(c.m.opex,4), v = growth(c.m.revenue,4);
+    if (o > v)
+      add({ sev:'warn', title:`Operating expenses up ${o.toFixed(1)}% vs revenue ${v.toFixed(1)}%`,
+        detail:`Operating expenses grew ${bn(c.m.opex[3])} → ${bn(c.m.opex[4])} while revenue grew more slowly. This is the direct arithmetic behind the margin compression.`,
+        figs:[[bn(c.m.opex[4]),'FY2025 opex','p.'+PAGE.is],[pctS(o),'YoY growth','p.'+PAGE.is]],
+        qs:['Which expense categories contributed most?','Is this a one-off or structural?'] });
+  }
+
+  /* positive signal */
+  if (c.m.npl && c.m.npl[4] < c.m.npl[0])
+    add({ sev:'ok', title:`Asset quality improved — NPL down to ${c.m.npl[4].toFixed(1)}%`,
+      detail:`NPL ratio improved every year, from ${c.m.npl[0].toFixed(1)}% in FY2021 to ${c.m.npl[4].toFixed(1)}% in FY2025. This is a genuine positive trend in the reported figures.`,
+      figs:[[c.m.npl[4].toFixed(1)+'%','FY2025 NPL ratio','p.'+PAGE.ratios],[ppS(c.m.npl[4]-c.m.npl[0]),'Change since FY2021','p.'+PAGE.ratios]],
+      qs:['What drove the improvement in NPLs?','Does this support a lower provisioning assumption?'] });
+
+  return out;
+}
+
+/* ==================================================================
+   9. PILLARS (PRD §6)
+   ================================================================== */
+function buildPillars(t){
+  const c = COMPANIES[t], x = M(t), P = [];
+  const bank = c.kind === 'bank';
+
+  /* Growth */
+  {
+    const st = trendStatus(x.revYoy, 5);
+    P.push({ key:'growth', name:'Growth', status:st,
+      explain:`Revenue ${st.k==='strong'||st.k==='improving'?'increased':'changed'} from ${bn(c.m.revenue[0])} to ${bn(c.m.revenue[4])} over five years (${pctS(x.revYoy)} in FY2025). EPS moved ${Naira}${c.m.eps[0].toFixed(2)} → ${Naira}${c.m.eps[4].toFixed(2)}, ${pctS(x.epsYoy)} year-on-year.`,
+      series: bank ? c.m.revenue : c.m.revenue, chart:'revenue',
+      rows:[
+        { prov:'reported', v:bn(c.m.revenue[4]), l:`FY2025 revenue · ${pctS(x.revYoy)}`, page:PAGE.is,
+          ev:ev(t,'revenue','Revenue FY2025', bn(c.m.revenue[4]), `Revenue = reported figure\n\nFY2024  ${bn(c.m.revenue[3])}\nFY2025  ${bn(c.m.revenue[4])}\n\nChange: ${pctS(x.revYoy)}`, PAGE.is, 'Consolidated income statement, top line.') },
+        { prov:'calc', v:Naira+c.m.eps[4].toFixed(2), l:`FY2025 EPS · ${pctS(x.epsYoy)}`, page:PAGE.is,
+          ev:ev(t,'eps','Earnings per share FY2025', Naira+c.m.eps[4].toFixed(2), `EPS = Net profit ÷ Weighted average shares\n\nNet profit  ${bn(c.m.netProfit[4])}   (p.${PAGE.is})\nShares      ${x.shares.toFixed(1)}bn\n\nCalculation: ${bn(c.m.netProfit[4])} ÷ ${x.shares.toFixed(1)}bn = ${Naira}${c.m.eps[4].toFixed(2)}`, PAGE.is, 'Calculated by DataLens from reported profit and share count.') }
+      ],
+      spark:c.m.revenue, sparkColor:'var(--secondary-500)' });
+  }
+
+  /* Profitability */
+  {
+    const st = trendStatus(x.marginDelta, 1);
+    P.push({ key:'profitability', name:'Profitability', status:st,
+      explain:`Net margin ${x.marginDelta<0?'fell':'rose'} from ${x.netMargin[3].toFixed(1)}% to ${x.netMargin[4].toFixed(1)}% (${ppS(x.marginDelta)}). ROE is ${x.roe[4].toFixed(1)}% on average equity of ${bn((c.m.equity[3]+c.m.equity[4])/2)}.`,
+      chart:'margin',
+      rows:[
+        { prov:'calc', v:x.roe[4].toFixed(1)+'%', l:`ROE · ${ppS(x.roeDelta)}`, page:PAGE.is,
+          ev:ev(t,'roe','Return on equity FY2025', x.roe[4].toFixed(1)+'%',
+            `ROE = Net profit ÷ Average shareholders' equity\n\nNet profit      ${bn(c.m.netProfit[4])}   (p.${PAGE.is})\nEquity FY2024   ${bn(c.m.equity[3])}   (p.${PAGE.bs})\nEquity FY2025   ${bn(c.m.equity[4])}   (p.${PAGE.bs})\nAverage equity  ${bn((c.m.equity[3]+c.m.equity[4])/2)}\n\nCalculation: ${bn(c.m.netProfit[4])} ÷ ${bn((c.m.equity[3]+c.m.equity[4])/2)} = ${x.roe[4].toFixed(1)}%`, PAGE.is, 'Average equity is used so the figure is not distorted by year-end swings.') },
+        { prov:'calc', v:x.netMargin[4].toFixed(1)+'%', l:`Net margin · ${ppS(x.marginDelta)}`, page:PAGE.ratios,
+          ev:ev(t,'netMargin','Net profit margin FY2025', x.netMargin[4].toFixed(1)+'%',
+            `Net margin = Net profit ÷ Revenue\n\nNet profit  ${bn(c.m.netProfit[4])}   (p.${PAGE.is})\nRevenue     ${bn(c.m.revenue[4])}   (p.${PAGE.is})\n\nCalculation: ${bn(c.m.netProfit[4])} ÷ ${bn(c.m.revenue[4])} = ${x.netMargin[4].toFixed(1)}%`, PAGE.is, 'Read alongside cost-to-income to see whether margin pressure is operational or provisioning-driven.') }
+      ],
+      spark:x.netMargin, sparkColor:'var(--success-500)' });
+  }
+
+  /* Cash flow */
+  {
+    const st = trendStatus(x.ocfGrowth, 5);
+    P.push({ key:'cashflow', name:'Cash Flow', status:st,
+      explain:`Operating cash flow ${x.ocfGrowth<0?'declined':'grew'} ${pctS(x.ocfGrowth)} to ${bn(c.m.ocf[4])} while net profit moved ${pctS(x.npGrowth)}. Cash conversion is ${x.cashConv.toFixed(2)}×. Free cash flow after ${bn(c.m.capex[4])} capex is ${bn(x.fcf[4])} (${pctS(x.fcfDelta)}).`,
+      chart:'cash',
+      rows:[
+        { prov:'reported', v:bn(c.m.ocf[4]), l:`FY2025 OCF · ${pctS(x.ocfGrowth)}`, page:PAGE.cf,
+          ev:ev(t,'ocf','Operating cash flow FY2025', bn(c.m.ocf[4]),
+            `Operating cash flow — reported\n\nFY2024  ${bn(c.m.ocf[3])}\nFY2025  ${bn(c.m.ocf[4])}\n\nChange: ${pctS(x.ocfGrowth)}\nCash conversion: ${bn(c.m.ocf[4])} ÷ ${bn(c.m.netProfit[4])} = ${x.cashConv.toFixed(2)}×`, PAGE.cf, 'Consolidated statement of cash flows, operating activities.') },
+        { prov:'calc', v:bn(x.fcf[4]), l:`Free cash flow · ${pctS(x.fcfDelta)}`, page:PAGE.cf,
+          ev:ev(t,'fcf','Free cash flow FY2025', bn(x.fcf[4]),
+            `FCF = Operating cash flow − Capital expenditure\n\nOCF    ${bn(c.m.ocf[4])}   (p.${PAGE.cf})\nCapEx  ${bn(c.m.capex[4])}   (p.${PAGE.cf})\n\nCalculation: ${bn(c.m.ocf[4])} − ${bn(c.m.capex[4])} = ${bn(x.fcf[4])}`, PAGE.cf, 'Capex taken from the investing activities section.') }
+      ],
+      spark:c.m.ocf, sparkColor: x.ocfGrowth<0?'var(--warning-500)':'var(--success-500)' });
+  }
+
+  /* Financial strength */
+  {
+    const st = trendStatus(-x.d2e, 3);
+    const extra = bank
+      ? [{ v:c.m.car[4].toFixed(1)+'%', l:'Capital adequacy' },{ v:c.m.npl[4].toFixed(1)+'%', l:'NPL ratio' }]
+      : [{ v:x.d2e.toFixed(2)+'×', l:'Debt / equity' }];
+    P.push({ key:'strength', name:'Financial Strength', status:st,
+      explain:`Total debt is ${bn(c.m.debt[4])}, giving debt-to-equity of ${x.d2e.toFixed(2)}×. ${bank?`Capital adequacy stands at ${c.m.car[4].toFixed(1)}% with an NPL ratio of ${c.m.npl[4].toFixed(1)}%.`:`Debt has grown ${pctS(pct(c.m.debt[0],c.m.debt[4]))} since FY2021 alongside expansion capex.`}`,
+      chart:'debt',
+      rows:[
+        { prov:'reported', v:bn(c.m.debt[4]), l:`Total debt · ${pctS(pct(c.m.debt[3],c.m.debt[4]))}`, page:PAGE.bs,
+          ev:ev(t,'debt','Total debt FY2025', bn(c.m.debt[4]),
+            `Total debt — reported\n\nFY2024  ${bn(c.m.debt[3])}\nFY2025  ${bn(c.m.debt[4])}\n\nChange: ${pctS(pct(c.m.debt[3],c.m.debt[4]))}\nDebt / equity: ${bn(c.m.debt[4])} ÷ ${bn(c.m.equity[4])} = ${x.d2e.toFixed(2)}×`, PAGE.bs, 'Interest-bearing borrowings, current and non-current.') },
+        ...extra.map(e=>({ prov:'reported', v:e.v, l:e.l, page:PAGE.ratios,
+          ev:ev(t,'car',e.l+' FY2025', e.v, `${e.l} — reported directly by the company.\n\n5-year series: ${(c.m.car||c.m.npl||[]).map(v=>v.toFixed(1)).join(' → ')}`, PAGE.ratios, 'Key prudential metric disclosed in the financial highlights.') }))
+      ],
+      spark:c.m.debt, sparkColor:'var(--primary-400)' });
+  }
+
+  /* Shareholder returns */
+  {
+    const g = x.dpsGrowth;
+    const st = trendStatus(g, 3);
+    P.push({ key:'returns', name:'Shareholder Returns', status:st,
+      explain:`Dividend per share is ${Naira}${c.m.dps[4].toFixed(2)}${g!==null?` (${pctS(g)} year-on-year)`:''}. Payout ratio is ${x.payoutLast.toFixed(1)}% of earnings. At a price of ${Naira}${c.price.toFixed(2)} the dividend yield is ${x.divYield.toFixed(1)}%.`,
+      chart:'dps',
+      rows:[
+        { prov:'reported', v:Naira+c.m.dps[4].toFixed(2), l:`DPS · ${g!==null?pctS(g):'no change'}`, page:PAGE.dividend,
+          ev:ev(t,'dps','Dividend per share FY2025', Naira+c.m.dps[4].toFixed(2),
+            `DPS — reported\n\n5-year series: ${c.m.dps.map(v=>Naira+v.toFixed(2)).join(' → ')}\n\nPayout = DPS ÷ EPS\nEPS FY2025  ${Naira}${c.m.eps[4].toFixed(2)}   (p.${PAGE.is})\n\nCalculation: ${Naira}${c.m.dps[4].toFixed(2)} ÷ ${Naira}${c.m.eps[4].toFixed(2)} = ${x.payoutLast.toFixed(1)}%`, PAGE.dividend, 'Declared dividend per share from the distribution note.') },
+        { prov:'market', v:x.divYield.toFixed(1)+'%', l:`Yield · as of ${c.priceAsOf}`, page:'market',
+          ev:ev(t,'divYield','Dividend yield', x.divYield.toFixed(1)+'%',
+            `Dividend yield = DPS ÷ Share price\n\nDPS        ${Naira}${c.m.dps[4].toFixed(2)}   (p.${PAGE.dividend})\nShare price ${Naira}${c.price.toFixed(2)}   (market data)\n\nCalculation: ${Naira}${c.m.dps[4].toFixed(2)} ÷ ${Naira}${c.price.toFixed(2)} = ${x.divYield.toFixed(1)}%`, 'market', `Share price as of ${c.priceAsOf}. This is market data, not a company-reported figure.`) }
+      ],
+      spark:c.m.dps, sparkColor:'var(--secondary-500)' });
+  }
+
+  /* Valuation */
+  {
+    const has = c.price > 0;
+    P.push({ key:'valuation', name:'Valuation', status: has?{k:'stable',label:'Market-dependent',badge:'info'}:{k:'nodata',label:'No market data',badge:'neutral'},
+      explain: has
+        ? `At ${Naira}${c.price.toFixed(2)} (${c.priceAsOf}) the shares trade at ${xS(x.pe)} earnings and ${xS(x.pb)} book, with a ${x.divYield.toFixed(1)}% yield. These are market-derived, not company-reported.`
+        : `No share price has been entered, so valuation multiples cannot be calculated. Enter a price manually to enable this pillar.`,
+      chart:'valuation',
+      rows: has ? [
+        { prov:'market', v:xS(x.pe), l:`P/E · price ${Naira}${c.price.toFixed(2)}`, page:'market',
+          ev:ev(t,'pe','Price / earnings', xS(x.pe),
+            `P/E = Share price ÷ EPS\n\nShare price  ${Naira}${c.price.toFixed(2)}   (market, ${c.priceAsOf})\nEPS          ${Naira}${c.m.eps[4].toFixed(2)}   (p.${PAGE.is})\n\nCalculation: ${Naira}${c.price.toFixed(2)} ÷ ${Naira}${c.m.eps[4].toFixed(2)} = ${xS(x.pe)}`, 'market', 'Never mix this with reported figures — the share price is external.') },
+        { prov:'calc', v:xS(x.pb), l:'P/B', page:PAGE.bs,
+          ev:ev(t,'pb','Price / book', xS(x.pb),
+            `P/B = Share price ÷ Book value per share\n\nShare price  ${Naira}${c.price.toFixed(2)}   (market, ${c.priceAsOf})\nEquity       ${bn(c.m.equity[4])}   (p.${PAGE.bs})\nShares       ${x.shares.toFixed(1)}bn\nBVPS         ${Naira}${x.bvps.toFixed(2)}\n\nCalculation: ${Naira}${c.price.toFixed(2)} ÷ ${Naira}${x.bvps.toFixed(2)} = ${xS(x.pb)}`, PAGE.bs, 'Book value derived from reported equity and share count.') }
+      ] : [],
+      spark:null, sparkColor:null });
+  }
+
+  return P;
+}
+
+/* ==================================================================
+   10. CHAT ENGINE (PRD §10) — grounded, keyword-routed answers
+   ================================================================== */
+const SUGGESTIONS = {
+  GTCO:['Why did operating cash flow decline while profit held?','Is my debt increasing faster than earnings?','What changed this year?'],
+  ZNB:['How has profitability trended?','What is driving revenue growth?','How does this compare with GTCO?'],
+  ACCESS:['What are the major risks in this report?','Why did profitability decline?','What did management say about asset quality?'],
+  MTNN:['Why did receivables increase so much?','What caused operating expenses to increase?','Is free cash flow still positive?']
+};
+
+function respond(q, t){
+  const c = COMPANIES[t], x = M(t), s = q.toLowerCase();
+  const has = (...k) => k.some(w=>s.includes(w));
+  const cites = [];
+  const C = (label, page) => { cites.push({label, page}); return ''; };
+
+  /* --- cash flow --- */
+  if (has('cash flow','cashflow','ocf','cash conversion','free cash','fcf')){
+    if (has('free cash','fcf')){
+      C('Cash flow p.'+PAGE.cf, PAGE.cf);
+      return { text:
+`Free cash flow for ${c.ticker} in FY2025 is ${bn(x.fcf[4])}, down ${Math.abs(x.fcfDelta).toFixed(1)}% from ${bn(x.fcf[3])} in FY2024.
+
+The arithmetic: operating cash flow of ${bn(c.m.ocf[4])} minus capital expenditure of ${bn(c.m.capex[4])}.
+
+Two things moved at once. Operating cash flow itself ${x.ocfGrowth<0?'fell':'rose'} ${pctS(x.ocfGrowth)}, and capital spending rose to ${bn(c.m.capex[4])} from ${bn(c.m.capex[3])} as the company continued investing.
+
+Over the full five years, free cash flow reads: ${x.fcf.map(v=>bn(v)).join(' → ')}.
+
+The question worth asking next is whether the cash flow decline is working capital timing or a structural change — receivables and inventory movements in the notes will tell you which.`,
+        citations: cites };
+    }
+    C('Cash flow p.'+PAGE.cf, PAGE.cf);
+    return { text:
+`Operating cash flow for ${c.ticker} was ${bn(c.m.ocf[4])} in FY2025, ${x.ocfGrowth<0?'a decline':'an increase'} of ${pctS(x.ocfGrowth)} from ${bn(c.m.ocf[3])}.
+
+${x.ocfGrowth<0 && x.npGrowth>=0 ? `The important part is that this happened while reported net profit was ${x.npGrowth>=0?'up':'flat'} at ${bn(c.m.netProfit[4])}. When profit and operating cash diverge, the gap is almost always working capital rather than an accounting choice.` : `Profit moved ${pctS(x.npGrowth)} over the same period, so the two broadly moved together this year.`}
+
+Cash conversion — operating cash flow divided by net profit — is ${x.cashConv.toFixed(2)}× for FY2025. Across the five years it reads: ${c.m.ocf.map((o,i)=>(o/c.m.netProfit[i]).toFixed(2)+'×').join(' → ')}.
+
+${x.cashConv<1.5 ? 'A conversion ratio below 1.5× means a meaningful share of reported profit is not yet cash.' : 'A conversion ratio above 1.5× means reported profit is comfortably backed by cash.'}`,
+      citations: cites };
+  }
+
+  /* --- debt / leverage --- */
+  if (has('debt','leverage','borrow','liabilit','solven')){
+    C('Balance sheet p.'+PAGE.bs, PAGE.bs);
+    C('Note 18 p.'+PAGE.equityNote, PAGE.equityNote);
+    const dG = pct(c.m.debt[3], c.m.debt[4]);
+    return { text:
+`Total debt for ${c.ticker} is ${bn(c.m.debt[4])} as at FY2025, up ${pctS(dG)} from ${bn(c.m.debt[3])} a year earlier.
+
+Against shareholders' equity of ${bn(c.m.equity[4])}, that gives debt-to-equity of ${x.d2e.toFixed(2)}×.
+
+Here is the comparison you asked about: debt grew ${pctS(dG)} while net profit grew ${pctS(x.npGrowth)}. ${dG>x.npGrowth ? 'Debt is growing faster than earnings, which is the condition worth investigating — it means leverage is rising even as the business generates more profit.': 'Earnings are growing at least as fast as debt, so leverage is not worsening on this measure.'}
+
+Five-year debt series: ${c.m.debt.map(v=>bn(v)).join(' → ')}.
+
+${c.m.car ? `For a bank, capital adequacy of ${c.m.car[4].toFixed(1)}% is the more important constraint than debt-to-equity, because deposits are the primary funding source.` : ''}`,
+      citations: cites };
+  }
+
+  /* --- profitability / margin --- */
+  if (has('profitab','margin','roe','roa','return on')){
+    C('Income statement p.'+PAGE.is, PAGE.is);
+    C('Balance sheet p.'+PAGE.bs, PAGE.bs);
+    return { text:
+`Profitability for ${c.ticker} in FY2025:
+
+Net margin   ${x.netMargin[4].toFixed(1)}%  (${ppS(x.marginDelta)} year-on-year)
+ROE          ${x.roe[4].toFixed(1)}%  (${ppS(x.roeDelta)} year-on-year)
+ROA          ${x.roa[4].toFixed(1)}%  (${ppS(x.roaDelta)} year-on-year)
+
+The ROE calculation: net profit of ${bn(c.m.netProfit[4])} divided by average shareholders' equity of ${bn((c.m.equity[3]+c.m.equity[4])/2)}. Average equity is used rather than year-end so a single year's balance sheet swing does not distort the figure.
+
+${x.marginDelta<0 ? `The direction is downward. Net margin moved from ${x.netMargin[3].toFixed(1)}% to ${x.netMargin[4].toFixed(1)}%. ${c.m.costToIncome?`Cost-to-income rose to ${c.m.costToIncome[4].toFixed(1)}% from ${c.m.costToIncome[3].toFixed(1)}%, which points to operating cost growth rather than pricing.`:`Operating expenses grew faster than revenue.`}` : `The direction is stable to improving across the three measures.`}
+
+Five-year net margin: ${x.netMargin.map(v=>v.toFixed(1)+'%').join(' → ')}`,
+      citations: cites };
+  }
+
+  /* --- growth --- */
+  if (has('growth','grew','revenue','eps','topline','top line','expand')){
+    C('Income statement p.'+PAGE.is, PAGE.is);
+    return { text:
+`Growth for ${c.ticker}:
+
+Revenue   ${bn(c.m.revenue[4])} in FY2025 (${pctS(x.revYoy)} year-on-year)
+EPS       ${Naira}${c.m.eps[4].toFixed(2)} (${pctS(x.epsYoy)} year-on-year)
+
+Five-year revenue: ${c.m.revenue.map((v,i)=>YEARS[i]+' '+bn(v)).join(' → ')}
+
+Revenue has compounded from ${bn(c.m.revenue[0])} in FY2021, a total increase of ${pctS(pct(c.m.revenue[0],c.m.revenue[4]))} over four years.
+
+${x.epsYoy > x.revYoy ? `Note that EPS grew faster (${pctS(x.epsYoy)}) than revenue (${pctS(x.revYoy)}) this year, which points to operating leverage or a changing share count rather than pure top-line expansion.` : `EPS grew more slowly (${pctS(x.epsYoy)}) than revenue (${pctS(x.revYoy)}), so margin or share count moved against earnings per share even as topline expanded.`}
+
+${c.m.npl ? `For a bank, revenue here is effectively interest and fee income — the ${c.m.industry} sector definition of the top line.` : ''}`,
+      citations: cites };
+  }
+
+  /* --- dividends / returns --- */
+  if (has('dividend','payout','yield','shareholder return','distribution')){
+    C('Distribution note p.'+PAGE.dividend, PAGE.dividend);
+    return { text:
+`Shareholder returns for ${c.ticker}:
+
+DPS          ${Naira}${c.m.dps[4].toFixed(2)}${x.dpsGrowth!==null?` (${pctS(x.dpsGrowth)} year-on-year)`:''}
+Payout ratio ${x.payoutLast.toFixed(1)}% of earnings
+Yield        ${x.divYield.toFixed(1)}% at ${Naira}${c.price.toFixed(2)}
+
+The payout calculation: DPS of ${Naira}${c.m.dps[4].toFixed(2)} divided by EPS of ${Naira}${c.m.eps[4].toFixed(2)}.
+
+Five-year DPS series: ${c.m.dps.map((v,i)=>YEARS[i]+' '+Naira+v.toFixed(2)).join(' → ')}
+
+${x.payoutLast>60?'A payout above 60% leaves less retained profit to fund growth, so the sustainability of this dividend depends on cash generation rather than accounting profit.':x.payoutLast<30?'The payout is conservative, meaning most earnings are retained. Whether that is prudent depends on what the company does with the retained capital.':'The payout sits in a moderate range, leaving room for both dividend growth and reinvestment.'}
+
+One important distinction: the DPS figure is company-reported. The share price and therefore the yield are market data. They are labelled separately in the interface so they are never conflated.`,
+      citations: cites };
+  }
+
+  /* --- valuation --- */
+  if (has('valuation','pe ratio','p/e','p/b','price to','expensive','cheap','overvalued')){
+    C('Income statement p.'+PAGE.is, PAGE.is);
+    return { text:
+`Valuation for ${c.ticker} at ${Naira}${c.price.toFixed(2)} (as of ${c.priceAsOf}):
+
+P/E            ${xS(x.pe)}
+P/B            ${xS(x.pb)}
+Dividend yield ${x.divYield.toFixed(1)}%
+
+P/E calculation: ${Naira}${c.price.toFixed(2)} share price ÷ ${Naira}${c.m.eps[4].toFixed(2)} EPS = ${xS(x.pe)}.
+
+${x.pe<8?`A P/E below 8 is low in absolute terms. The question is whether it reflects caution about the earnings trend rather than a mispricing.`:`A P/E of ${xS(x.pe)} reflects the market's current assessment of earnings quality and growth.`}
+
+The critical caveat for ${c.ticker}: EPS ${x.epsYoy<0?'declined':'grew'} ${pctS(x.epsYoy)} this year. ${x.epsYoy<0?'A low P/E combined with falling earnings is a different signal from a low P/E with growing earnings — the multiple looks cheap partly because the denominator fell.':''}
+
+These multiples use market data for price and company-reported data for earnings. Both are labelled, and neither should be read as a recommendation.`,
+      citations: cites };
+  }
+
+  /* --- risks --- */
+  if (has('risk','concern','problem','weak','red flag','warning','downside')){
+    const sig = computeSignals(t).filter(s=>s.sev!=='ok');
+    C('Ratio notes p.'+PAGE.ratios, PAGE.ratios);
+    const body = sig.length
+      ? sig.map((s,i)=>`${i+1}. ${s.title}\n   ${s.detail}`).join('\n\n')
+      : 'No material deterioration signals were triggered by the configured thresholds for this company in FY2025.';
+    return { text:
+`Signals currently triggered for ${c.ticker}:
+
+${body}
+
+${sig.length?`These are signals that deserve investigation, not a verdict on the company. DataLens does not label a business "risky" — it shows the figures that moved and lets you decide what they mean.`:'That is a statement about the thresholds tested, not a claim that the business is safe. A company can be sound and still carry risks these metrics do not capture.'}`,
+      citations: cites };
+  }
+
+  /* --- peer comparison --- */
+  if (has('peer','compare','zenith','access','competitor','versus',' vs ')){
+    const peers = peerSet(t);
+    C('Peer metrics p.'+PAGE.ratios, PAGE.ratios);
+    return { text:
+`Peer comparison for ${c.ticker} against ${peers.map(p=>COMPANIES[p].ticker).join(', ')}:
+
+ROE        ${c.ticker} ${x.roe[4].toFixed(1)}%   vs peer average ${peers.reduce((s,p)=>s+M(p).roe[4],0)/peers.length>0?(peers.reduce((s,p)=>s+M(p).roe[4],0)/peers.length).toFixed(1):'—'}%
+Net margin ${c.ticker} ${x.netMargin[4].toFixed(1)}%   vs peer average ${peers.length?(peers.reduce((s,p)=>s+M(p).netMargin[4],0)/peers.length).toFixed(1):'—'}%
+P/E        ${c.ticker} ${xS(x.pe)}   vs peer average ${peers.length?xS(peers.reduce((s,p)=>s+M(p).pe,0)/peers.length):'—'}
+
+${c.m.costToIncome?`Cost-to-income is the sector-standard efficiency measure. ${c.ticker} at ${c.m.costToIncome[4].toFixed(1)}% against a peer average of ${peers.length?(peers.reduce((s,p)=>s+COMPANIES[p].m.costToIncome[4],0)/peers.length).toFixed(1):'—'}%.`:''}
+
+Two cautions on peer comparison. First, accounting policies and fiscal year ends differ between companies, so a margin gap is not automatically an efficiency gap. Second, the peer set here is illustrative — in the real product you control which companies are included and can add or remove any of them.`,
+      citations: cites };
+  }
+
+  /* --- thesis --- */
+  if (has('thesis','my view','watchlist','monitoring','watch')){
+    const th = loadThesis(t);
+    const hit = (th.watch||[]).filter(w => {
+      const wl = w.toLowerCase();
+      return s.includes(wl.split(' ')[0]) || s.includes(wl.split(' ').slice(-1)[0]);
+    });
+    return { text:
+`Your saved thesis for ${c.ticker} currently covers:
+
+Growth — ${th.growth}
+Profitability — ${th.profitability}
+Financial strength — ${th.strength}
+
+Things you are watching: ${(th.watch||[]).join(', ') || 'none set'}
+
+${hit.length?`Based on your question, the relevant watchlist items are: ${hit.join(', ')}. FY2025 values — operating cash flow ${bn(c.m.ocf[4])} (${pctS(x.ocfGrowth)}), cost-to-income ${c.m.costToIncome?c.m.costToIncome[4].toFixed(1)+'%':'n/a'}, net margin ${x.netMargin[4].toFixed(1)}% (${ppS(x.marginDelta)}).`:`No watchlist item matches that question directly. Your watchlist is monitored whenever a new report is processed, and any item that changes direction raises an alert in the workspace.`}
+
+DataLens organises the thesis and flags where evidence supports or challenges it. It does not judge whether your thesis is right.`,
+      citations: [] };
+  }
+
+  /* --- what changed --- */
+  if (has('changed','change','new report','this year','fy2025','latest','diff')){
+    C('FY2024 vs FY2025', PAGE.is);
+    return { text: changeNarrative(t), citations: cites };
+  }
+
+  /* --- management commentary --- */
+  if (has('management','said','commentary','md&a','outlook','strategy')){
+    C('Directors report p.'+PAGE.segment, PAGE.segment);
+    return { text:
+`In this prototype the narrative sections of the report are represented as extracted text rather than a full management commentary, so I cannot quote directors directly without inventing words — which would defeat the purpose.
+
+What the extracted narrative sections do support is the driver attribution shown on the "What Changed" view: where a metric moved, the change is linked to the note in the report most likely to explain it, with a page reference you can check.
+
+For ${c.ticker}, the FY2025 changes attributed this way are:
+
+${diffRows(t).slice(0,4).map(r=>`• ${r.metric}: ${r.from} → ${r.to}, attributed to ${r.driver} (${r.src})`).join('\n')}
+
+Each attribution is a pointer to where in the report to look, not a claim about management intent. The distinction is marked in the interface.`,
+      citations: cites };
+  }
+
+  /* --- fallback --- */
+  return { text:
+`I can answer questions about ${c.ticker}'s reported financials, the signals DataLens flagged, how it compares with peers, and how the evidence behind each figure was calculated.
+
+A few things I can work from right now:
+
+• FY2025 revenue ${bn(c.m.revenue[4])} (${pctS(x.revYoy)}), net profit ${bn(c.m.netProfit[4])}, EPS ${Naira}${c.m.eps[4].toFixed(2)}
+• ROE ${x.roe[4].toFixed(1)}%, net margin ${x.netMargin[4].toFixed(1)}% (${ppS(x.marginDelta)})
+• Operating cash flow ${bn(c.m.ocf[4])} (${pctS(x.ocfGrowth)}), free cash flow ${bn(x.fcf[4])}
+• ${computeSignals(t).length} signals currently triggered
+
+Ask something specific — "why did cash flow fall", "is debt outrunning earnings", "how does this compare with peers" — and I will trace it to the underlying figures.`,
+    citations: [] };
+}
+
+/* ==================================================================
+   11. DIFF / WHAT CHANGED (PRD §18)
+   ================================================================== */
+function diffRows(t){
+  const c = COMPANIES[t], x = M(t);
+  const R = [];
+  R.push({ metric:'Revenue', from:bn(c.m.revenue[3]), to:bn(c.m.revenue[4]), delta:pctS(x.revYoy), up:x.revYoy>0,
+    driver:c.m.npl?`Loan growth and stable net interest margin`:'Revenue growth across segments', src:`p.${PAGE.segment}` });
+  R.push({ metric:'Net profit', from:bn(c.m.netProfit[3]), to:bn(c.m.netProfit[4]), delta:pctS(x.npGrowth), up:x.npGrowth>0,
+    driver:x.npGrowth<0?'Higher provisions and operating expense growth':'Improved net interest income', src:`p.${PAGE.is} · Note 6 p.44` });
+  R.push({ metric:'Net margin', from:x.netMargin[3].toFixed(1)+'%', to:x.netMargin[4].toFixed(1)+'%', delta:ppS(x.marginDelta), up:x.marginDelta>0,
+    driver:x.marginDelta<0?(c.m.costToIncome?'Cost-to-income rose to '+c.m.costToIncome[4].toFixed(1)+'%':'Operating expense growth'):'Cost discipline held', src:`p.${PAGE.ratios}` });
+  R.push({ metric:'Operating cash flow', from:bn(c.m.ocf[3]), to:bn(c.m.ocf[4]), delta:pctS(x.ocfGrowth), up:x.ocfGrowth>0,
+    driver:x.ocfGrowth<0?(c.m.receivables?'Receivables buildup absorbed cash':'Working capital movement'):'Cash generation improved', src:`p.${PAGE.cf}` });
+  R.push({ metric:'Free cash flow', from:bn(x.fcf[3]), to:bn(x.fcf[4]), delta:pctS(x.fcfDelta), up:x.fcfDelta>0,
+    driver:'Capex '+bn(c.m.capex[4])+' vs '+bn(c.m.capex[3]), src:`p.${PAGE.cf}` });
+  R.push({ metric:'Total debt', from:bn(c.m.debt[3]), to:bn(c.m.debt[4]), delta:pctS(pct(c.m.debt[3],c.m.debt[4])), up:false,
+    driver:'New USD-denominated borrowing', src:`Note 18 p.${PAGE.equityNote}` });
+  R.push({ metric:'DPS', from:Naira+c.m.dps[3].toFixed(2), to:Naira+c.m.dps[4].toFixed(2), delta:x.dpsGrowth!==null?pctS(x.dpsGrowth):'—', up:(x.dpsGrowth||0)>0,
+    driver:'Declared distribution', src:`p.${PAGE.dividend}` });
+  if (c.m.npl) R.push({ metric:'NPL ratio', from:c.m.npl[3].toFixed(1)+'%', to:c.m.npl[4].toFixed(1)+'%', delta:ppS(c.m.npl[4]-c.m.npl[3]), up:c.m.npl[4]<c.m.npl[3],
+    driver:'Loan book growth outpaced provisioning', src:`p.${PAGE.ratios}` });
+  if (c.m.car) R.push({ metric:'Capital adequacy', from:c.m.car[3].toFixed(1)+'%', to:c.m.car[4].toFixed(1)+'%', delta:ppS(c.m.car[4]-c.m.car[3]), up:c.m.car[4]>c.m.car[3],
+    driver:'Retained earnings and risk-weighted asset growth', src:`p.${PAGE.ratios}` });
+  if (c.m.receivables) R.push({ metric:'Receivables', from:bn(c.m.receivables[3]), to:bn(c.m.receivables[4]), delta:pctS(pct(c.m.receivables[3],c.m.receivables[4])), up:false,
+    driver:'Slower collection cycle', src:`Note 9 p.${PAGE.notes}` });
+  return R;
+}
+function changeNarrative(t){
+  const c = COMPANIES[t], x = M(t);
+  const ups = diffRows(t).filter(r=>r.up).length, downs = diffRows(t).length-ups;
+  return `Comparing the FY2024 and FY2025 reports for ${c.ticker}, ${ups} tracked metrics improved and ${downs} weakened.
+
+The movements that matter most:
+
+Revenue ${bn(c.m.revenue[3])} → ${bn(c.m.revenue[4])} (${pctS(x.revYoy)})
+Net profit ${bn(c.m.netProfit[3])} → ${bn(c.m.netProfit[4])} (${pctS(x.npGrowth)})
+Net margin ${x.netMargin[3].toFixed(1)}% → ${x.netMargin[4].toFixed(1)}% (${ppS(x.marginDelta)})
+Operating cash flow ${bn(c.m.ocf[3])} → ${bn(c.m.ocf[4])} (${pctS(x.ocfGrowth)})
+Total debt ${bn(c.m.debt[3])} → ${bn(c.m.debt[4])} (${pctS(pct(c.m.debt[3],c.m.debt[4]))})
+
+Each movement on the What Changed view links to the note in the new report most likely to explain it. Those attributions are pointers to where to look in the report — they are the system's interpretation, and they are labelled as such rather than presented as management's stated explanation.`;
+}
+
+/* ==================================================================
+   12. PEERS (PRD §14)
+   ================================================================== */
+function peerSet(t){ return TICKER_ORDER.filter(x=>x!==t); }
+const PEER_METRICS = [
+  { k:'roe',      label:'Return on equity', fmt:v=>v.toFixed(1)+'%' },
+  { k:'netMargin',label:'Net profit margin', fmt:v=>v.toFixed(1)+'%' },
+  { k:'revYoy',   label:'Revenue growth YoY', fmt:v=>pctS(v) },
+  { k:'roa',      label:'Return on assets', fmt:v=>v.toFixed(1)+'%' },
+  { k:'cashConv', label:'Cash conversion', fmt:v=>v.toFixed(2)+'×' },
+  { k:'pe',       label:'P/E ratio', fmt:v=>xS(v), market:true },
+  { k:'pb',       label:'P/B ratio', fmt:v=>xS(v), market:true },
+  { k:'divYield', label:'Dividend yield', fmt:v=>v.toFixed(1)+'%', market:true }
+];
+const bankOnly = [
+  { k:'costToIncome', label:'Cost-to-income', fmt:v=>v.toFixed(1)+'%' },
+  { k:'npl',          label:'NPL ratio',       fmt:v=>v.toFixed(1)+'%' },
+  { k:'car',          label:'Capital adequacy',fmt:v=>v.toFixed(1)+'%' }
+];
+
+/* ==================================================================
+   13. RENDERERS
+   ================================================================== */
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function renderSidebar(){
+  const t = state.ticker, c = COMPANIES[t], x = M(t), sigs = computeSignals(t), th = loadThesis(t);
+  const watchHits = (th.watch||[]).filter(w=>{
+    const l = w.toLowerCase();
+    if (l.includes('cash flow')) return x.ocfGrowth < 0;
+    if (l.includes('margin')) return x.marginDelta < 0;
+    if (l.includes('npl')) return c.m.npl && pct(c.m.npl[3],c.m.npl[4])>0;
+    if (l.includes('cost')) return c.m.costToIncome && pct(c.m.costToIncome[3],c.m.costToIncome[4])>0;
+    if (l.includes('debt')) return pct(c.m.debt[3],c.m.debt[4]) > x.npGrowth;
+    if (l.includes('finance cost') || l.includes('dividend growth')) return (x.dpsGrowth||0) < 0;
+    if (l.includes('receivable')) return c.m.receivables && pct(c.m.receivables[3],c.m.receivables[4])>15;
+    if (l.includes('operating expense')) return c.m.opex && growth(c.m.opex,4) > x.revYoy;
+    if (l.includes('capital adequacy')) return c.m.car && c.m.car[4]<20;
+    if (l.includes('free cash')) return x.fcfDelta < 0;
+    if (l.includes('profit margin')) return x.marginDelta<0;
+    return false;
+  });
+
+  document.getElementById('sidebar').innerHTML = `
+    <div class="panel">
+      <div class="panel-body" style="text-align:center">
+        <div class="row" style="justify-content:center;margin-bottom:var(--space-2)">
+          <span class="co-tick" style="font-size:var(--text-sm);padding:5px 10px">${c.ticker}</span>
+        </div>
+        <div class="strong small">${c.name}</div>
+        <div class="xs muted">${c.sector} · ${c.industry}</div>
+        <div class="xs muted">${c.exchange} · 5 reports loaded</div>
+        <div class="divider"></div>
+        <div class="row" style="justify-content:space-between">
+          <div style="text-align:left"><div class="kpi-label">Price</div><div class="kpi-val" style="font-size:var(--text-base)">${Naira}${c.price.toFixed(2)}</div></div>
+          <div style="text-align:right"><div class="kpi-label">Signals</div><div class="kpi-val ${sigs.filter(s=>s.sev==='danger').length?'down':''}" style="font-size:var(--text-base)">${sigs.length}</div></div>
+        </div>
+        <div class="xs muted" style="margin-top:var(--space-2)">as of ${c.priceAsOf}</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Thesis watchlist</h3><span class="pill">${(th.watch||[]).length}</span></div>
+      <div class="panel-body">
+        ${(th.watch||[]).length ? (th.watch||[]).map(w=>{
+          const hit = watchHits.includes(w);
+          return `<div class="watch-chip ${hit?'on':''}" style="margin-bottom:6px;width:100%;justify-content:space-between">
+            <span>${hit?'⚠':''} ${esc(w)}</span>
+            <span class="xs">${hit?'moved':'stable'}</span></div>`;
+        }).join('') : '<p class="xs muted">No watchlist items. Add some in the thesis view.</p>'}
+        ${watchHits.length?`<div class="alert alert-warn" style="margin:var(--space-3) 0 0;font-size:var(--text-xs)">
+          <span>🔄</span><div><strong>${watchHits.length} thesis item${watchHits.length>1?'s':''} affected</strong><br>Evidence still supports or challenges parts of your saved thesis.</div></div>`:''}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Analysis period</h3></div>
+      <div class="panel-body">
+        <select class="select" id="winSel" style="margin-bottom:var(--space-3)">
+          <option value="3" ${state.window===3?'selected':''}>Last 3 years</option>
+          <option value="5" ${state.window===5?'selected':''}>Last 5 years (default)</option>
+        </select>
+        <p class="xs muted">PRD §8 — the default window is five years, but all available history is retained and can be asked about directly.</p>
+      </div>
+    </div>
+
+    <button class="btn btn-outline btn-block" data-view-jump="thesis">Edit my thesis</button>`;
+}
+
+function viewSnapshot(){
+  const t = state.ticker, c = COMPANIES[t], x = M(t), P = buildPillars(t);
+  const n = state.window===3?3:5, yrs = YEARS.slice(-n);
+  const mk = (k,f)=>ys=>ys.map((_,i)=>f(YEARS.length-n+i));
+
+  const revSeries = { label:c.ticker+' revenue', color:'var(--secondary-500)', values:c.m.revenue.slice(-n) };
+  const marginSeries = { label:'Net margin %', color:'var(--success-500)', values:x.netMargin.slice(-n) };
+  const ocfSeries  = { label:'Operating cash flow', color:x.ocfGrowth<0?'var(--warning-500)':'var(--success-500)', values:c.m.ocf.slice(-n) };
+  const profitSeries={ label:'Net profit', color:'var(--accent)', values:c.m.netProfit.slice(-n) };
+  const debtSeries = { label:'Total debt', color:'var(--primary-400)', values:c.m.debt.slice(-n) };
+  const dpsSeries  = { label:'DPS', color:'var(--secondary-500)', values:c.m.dps.slice(-n) };
+  const epsSeries  = { label:'EPS', color:'var(--accent)', values:c.m.eps.slice(-n) };
+
+  const chartFor = k => {
+    if (k==='revenue')  return lineChart(yrs,[revSeries,profitSeries],{fmtY:v=>bn(v)});
+    if (k==='margin')   return lineChart(yrs,[marginSeries],{fmtY:v=>v.toFixed(0)+'%'});
+    if (k==='cash')     return lineChart(yrs,[ocfSeries],{fmtY:v=>bn(v)});
+    if (k==='debt')     return lineChart(yrs,[debtSeries],{fmtY:v=>bn(v)});
+    if (k==='dps')      return lineChart(yrs,[dpsSeries],{fmtY:v=>'₦'+v.toFixed(1)});
+    if (k==='valuation')return lineChart(yrs,[epsSeries],{fmtY:v=>'₦'+v.toFixed(1)});
+    return '';
+  };
+
+  return `
+  <div class="co-hero">
+    <div class="co-hero-top">
+      <div>
+        <div class="row" style="margin-bottom:var(--space-1)">
+          <span class="co-tick">${c.ticker}</span>
+          <span class="pill">${c.exchange}</span>
+          <span class="pill">${c.industry}</span>
+          <span class="pill">FY${YEARS[0]}–FY${YEARS[4]}</span>
+        </div>
+        <h1>${c.name}</h1>
+        <div class="co-meta">Financial Health Snapshot · ${yrs.length} year window · generated from ${yrs.length} annual reports</div>
+      </div>
+      <div class="row">
+        <button class="btn btn-outline btn-sm" data-view-jump="reports">Reports</button>
+        <button class="btn btn-primary btn-sm" data-view-jump="chat">Ask about this company</button>
+      </div>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi"><div class="kpi-label">Revenue</div><div class="kpi-val">${bn(c.m.revenue[4])}</div><div class="kpi-delta ${x.revYoy>=0?'up':'down'}">${pctS(x.revYoy)} YoY</div></div>
+      <div class="kpi"><div class="kpi-label">Net profit</div><div class="kpi-val">${bn(c.m.netProfit[4])}</div><div class="kpi-delta ${x.npGrowth>=0?'up':'down'}">${pctS(x.npGrowth)} YoY</div></div>
+      <div class="kpi"><div class="kpi-label">EPS</div><div class="kpi-val">${Naira}${c.m.eps[4].toFixed(2)}</div><div class="kpi-delta ${x.epsYoy>=0?'up':'down'}">${pctS(x.epsYoy)} YoY</div></div>
+      <div class="kpi"><div class="kpi-label">ROE</div><div class="kpi-val">${x.roe[4].toFixed(1)}%</div><div class="kpi-delta ${x.roeDelta>=0?'up':'down'}">${ppS(x.roeDelta)} YoY</div></div>
+      <div class="kpi"><div class="kpi-label">Op. cash flow</div><div class="kpi-val">${bn(c.m.ocf[4])}</div><div class="kpi-delta ${x.ocfGrowth>=0?'up':'down'}">${pctS(x.ocfGrowth)} YoY</div></div>
+      <div class="kpi"><div class="kpi-label">P/E <span class="prov prov-market" style="font-size:8px">mkt</span></div><div class="kpi-val">${xS(x.pe)}</div><div class="kpi-delta muted">at ${Naira}${c.price.toFixed(2)}</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2>Six pillars</h2>
+      <div class="row">
+        <span class="micro">Status + Evidence + Explanation</span>
+        <span class="badge badge-info">${P.filter(p=>p.status.badge==='success').length} positive</span>
+        <span class="badge badge-warning">${P.filter(p=>p.status.badge==='warning').length} investigate</span>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="pillar-grid">
+        ${P.map(p=>`
+        <div class="pillar p-${p.status.k}">
+          <div class="pillar-head">
+            <span class="pillar-name">${p.name}</span>
+            <span class="badge ${BADGE[p.status.badge]}"><span class="badge-dot ${DOT[p.status.badge]}"></span>${p.status.label}</span>
+          </div>
+          <div class="pillar-explain">${esc(p.explain)}</div>
+          ${p.rows.length?p.rows.map(r=>`
+            <div class="evidence-row">
+              <span class="prov prov-${r.prov}">${r.prov}</span>
+              <span class="evidence-value">${esc(r.v)}</span>
+              <span class="evidence-label">${esc(r.l)}</span>
+              <button class="citation" data-ev='${JSON.stringify(r.ev).replace(/'/g,"&#39;")}'>${r.page==='market'?'mkt':'p.'+r.page}</button>
+            </div>`).join(''):`<div class="evidence-row"><span class="evidence-label">No market price entered — valuation multiples unavailable.</span></div>`}
+          ${p.spark?`<div class="row" style="margin-top:var(--space-2);justify-content:space-between">
+            <span class="xs muted">${n}-year trend</span>${sparkline(p.spark, p.sparkColor, 90, 20)}</div>`:''}
+          ${p.key!=='valuation'?`<div class="row" style="margin-top:var(--space-2)">
+            <button class="btn btn-ghost btn-sm" data-concept="${p.key}">Explain ${p.name.toLowerCase()} ▸</button></div>`:''}
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="panel">
+      <div class="panel-head"><h3>Revenue and profit</h3><span class="prov prov-reported">reported</span></div>
+      <div class="panel-body">${chartFor('revenue')}</div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Net margin</h3><span class="prov prov-calc">calculated</span></div>
+      <div class="panel-body">${chartFor('margin')}</div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Operating cash flow</h3><span class="prov prov-reported">reported</span></div>
+      <div class="panel-body">${chartFor('cash')}</div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Total debt</h3><span class="prov prov-reported">reported</span></div>
+      <div class="panel-body">${chartFor('debt')}</div>
+    </div>
+  </div>`;
+}
+
+function viewChat(){
+  const t = state.ticker, c = COMPANIES[t], log = state.chat[t];
+  return `
+  <div class="page-head">
+    <h1>Ask about ${esc(c.short)}</h1>
+    <p>Multi-step questions grounded in ${c.ticker}'s reports. Every figure in an answer carries a citation you can open and verify. You do not need to know which ratio to ask for.</p>
+  </div>
+  <div class="chat-wrap">
+    <div class="chat-log" id="chatLog">
+      ${log.length===0 ? `
+        <div class="bubble bubble-ai" style="max-width:100%">
+<strong>What would you like to understand about ${c.ticker}?</strong>
+
+I can work across five years of reported financials, the signals DataLens flagged, peer comparisons, and the calculations behind every figure. Compound questions work well — for example "revenue grew strongly, but did profitability actually improve?"
+
+Try one of these:
+        </div>
+        <div class="suggestions">
+          ${SUGGESTIONS[t].map(s=>`<button class="btn btn-outline btn-sm" data-ask="${esc(s)}">${esc(s)}</button>`).join('')}
+        </div>` : log.map(m=>m.role==='user'
+          ? `<div class="bubble bubble-user">${esc(m.text)}</div>`
+          : `<div class="bubble bubble-ai">${esc(m.text)}${m.cites&&m.cites.length?`<div class="bubble-cites">${m.cites.map((x,i)=>`<span class="citation" data-page="${x.page}">${esc(x.label)}</span>`).join('')}</div>`:''}</div>`
+        ).join('')}
+      <div id="typing" style="display:none"><div class="bubble bubble-ai"><div class="typing"><span></span><span></span><span></span></div></div></div>
+    </div>
+    <div class="chat-input">
+      <div class="chat-input-row">
+        <input class="input" id="chatField" placeholder="Ask about ${c.ticker}'s financials, risks, peers or valuation…" autocomplete="off">
+        <button class="btn btn-primary" id="chatSend">Ask</button>
+      </div>
+      <p class="xs muted" style="margin-top:var(--space-2)">Answers are generated from the report figures shown in this prototype. Figures are illustrative sample data, not real reported results.</p>
+    </div>
+  </div>`;
+}
+
+function viewSignals(){
+  const t = state.ticker, c = COMPANIES[t], sigs = computeSignals(t);
+  const dangers = sigs.filter(s=>s.sev==='danger').length, warns = sigs.filter(s=>s.sev==='warn').length, oks = sigs.filter(s=>s.sev==='ok').length;
+  return `
+  <div class="page-head">
+    <h1>Signals for ${esc(c.short)}</h1>
+    <p>Potential financial conditions that deserve investigation — never a verdict. DataLens does not label a company "risky"; it shows the figures that moved, why they may matter, and what to ask next.</p>
+  </div>
+  <div class="row" style="margin-bottom:var(--space-4)">
+    <span class="badge badge-danger">${dangers} material</span>
+    <span class="badge badge-warning">${warns} investigate</span>
+    <span class="badge badge-success">${oks} positive</span>
+    <span class="pill">thresholds: ${c.industry.toLowerCase()}</span>
+  </div>
+  <div class="alert alert-info">
+    <span>ℹ️</span><div>Signal thresholds are configurable per sector. These fired against the raw series for ${c.ticker} FY2021–FY2025. Each one lists the exact figures, so you can check the arithmetic yourself.</div>
+  </div>
+  ${sigs.length ? sigs.map(s=>`
+    <div class="signal ${s.sev==='danger'?'danger':s.sev==='ok'?'ok':''}">
+      <div class="signal-top">
+        <div style="flex:1">
+          <div class="signal-title">${esc(s.title)}</div>
+        </div>
+        <span class="badge ${s.sev==='danger'?BADGE.danger:s.sev==='ok'?BADGE.success:BADGE.warning}">
+          <span class="badge-dot ${DOT[s.sev==='danger'?'danger':s.sev==='ok'?'success':'warning']}"></span>
+          ${s.sev==='danger'?'Material':s.sev==='ok'?'Positive':'Investigate'}
+        </span>
+      </div>
+      <div class="signal-detail">${esc(s.detail)}</div>
+      ${s.figs?s.figs.map(f=>`<div class="evidence-row">
+        <span class="prov prov-reported">reported</span>
+        <span class="evidence-value">${esc(f[0])}</span>
+        <span class="evidence-label">${esc(f[1])}</span>
+        <span class="citation">${esc(f[2])}</span></div>`).join(''):''}
+      <div class="signal-questions" style="margin-top:var(--space-3)">
+        ${s.qs.map(q=>`<button class="btn btn-secondary btn-sm" data-ask="${esc(q)}">${esc(q)}</button>`).join('')}
+        <button class="btn btn-ghost btn-sm" data-view-jump="chat">Ask your own question →</button>
+      </div>
+    </div>`).join('') : `<div class="panel"><div class="empty">No signals triggered for ${c.ticker} against the configured thresholds.</div></div>`}`;
+}
+
+function viewPeers(){
+  const t = state.ticker, c = COMPANIES[t], peers = peerSet(t);
+  const metrics = PEER_METRICS.concat(c.kind==='bank'?bankOnly:[]);
+  const rowsFor = list => list.map(tt=>({ t:tt, x:M(tt) }));
+
+  let thead = `<thead><tr><th>Metric</th>`;
+  [t].concat(peers).forEach(tt=>{
+    thead += `<th class="num">${tt===t?`<span class="badge badge-info">${tt}</span>`:tt}</th>`;
+  });
+  thead += `<th class="num">Peer avg</th><th>${t} trend</th><th class="num">Percentile</th></tr></thead>`;
+
+  let tbody = '<tbody>';
+  metrics.forEach(mt=>{
+    const vals = [t].concat(peers).map(tt=>{
+      if (mt.k==='costToIncome') return COMPANIES[tt].m.costToIncome[4];
+      if (mt.k==='npl') return COMPANIES[tt].m.npl[4];
+      if (mt.k==='car') return COMPANIES[tt].m.car[4];
+      return M(tt)[mt.k];
+    });
+    const self = vals[0];
+    const others = vals.slice(1);
+    const avgV = others.reduce((a,b)=>a+b,0)/others.length;
+    const better = (mt.k==='npl') ? 'lower' : 'higher';
+    const rank = others.filter(v => better==='lower' ? v>self : v<self).length;
+    const pctRank = Math.round((rank/others.length)*100);
+    const sparkKey = mt.k==='roe'?'roe':mt.k==='netMargin'?'netMargin':mt.k==='pe'?null:mt.k;
+    const sparkVals = (sparkKey && M(t)[sparkKey]) ? M(t)[sparkKey].slice(-state.window) : null;
+    const color = (mt.k==='npl'||mt.k==='costToIncome') ? 'var(--danger-500)' : (mt.k==='car'?'var(--success-500)':'var(--secondary-500)');
+
+    tbody += `<tr class="${t===state.ticker&&mt.k?'self':''}">
+      <td>${esc(mt.label)} ${mt.market?'<span class="prov prov-market">mkt</span>':''}</td>`;
+    vals.forEach((v,i)=>{
+      tbody += `<td class="num" style="${i===0?'font-weight:700':''}">${mt.fmt(v)}</td>`;
+    });
+    tbody += `<td class="num muted">${mt.fmt(avgV)}</td>
+      <td>${sparkVals?sparkline(sparkVals,color,70,20):'<span class="xs muted">—</span>'}</td>
+      <td class="num"><span class="badge ${pctRank>=60?BADGE.success:pctRank<=30?BADGE.warning:BADGE.neutral}">${pctRank}th</span></td>
+    </tr>`;
+  });
+  tbody += '</tbody>';
+
+  return `
+  <div class="page-head">
+    <h1>Peer comparison</h1>
+    <p>${c.ticker} against ${peers.map(p=>COMPANIES[p].short).join(', ')}. The peer set is user-controlled in the real product — accept, remove, or add companies freely. Percentile ranks ${c.ticker} within this set.</p>
+  </div>
+  <div class="row" style="margin-bottom:var(--space-4)">
+    <span class="pill">${peers.length+1} companies</span>
+    <span class="pill">${metrics.length} metrics</span>
+    <span class="pill">${c.industry}</span>
+    <span class="pill">market data as of ${c.priceAsOf}</span>
+  </div>
+  <div class="table-wrap"><table>${thead}${tbody}</table></div>
+  <div class="alert alert-info" style="margin-top:var(--space-4)">
+    <span>ℹ️</span><div><strong>Two cautions on peer comparison.</strong> Accounting policies and fiscal year ends differ between companies, so a margin gap is not automatically an efficiency gap. And where data is unavailable for a peer it is excluded from the average and shown explicitly, never silently imputed.</div>
+  </div>`;
+}
+
+function viewChanges(){
+  const t = state.ticker, c = COMPANIES[t], rows = diffRows(t);
+  return `
+  <div class="page-head">
+    <h1>What changed?</h1>
+    <p>FY2024 → FY2025 for ${esc(c.short)}. Each movement links to the note in the new report most likely to explain it. Attributions are DataLens's analytical interpretation and are labelled as such — they are not presented as management's stated explanation.</p>
+  </div>
+  <div class="two-col" style="margin-bottom:var(--space-5)">
+    <div class="panel"><div class="panel-head"><h3>Revenue</h3></div><div class="panel-body">${barChart(['FY21','FY22','FY23','FY24','FY25'], c.m.revenue, 'var(--secondary-500)', v=>bn(v))}</div></div>
+    <div class="panel"><div class="panel-head"><h3>Net profit</h3></div><div class="panel-body">${barChart(['FY21','FY22','FY23','FY24','FY25'], c.m.netProfit, 'var(--accent)', v=>bn(v))}</div></div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Metric</th><th class="num">FY2024</th><th class="num">FY2025</th><th class="num">Change</th><th>Driver attributed (interpretation)</th><th>Source</th></tr></thead>
+      <tbody>
+        ${rows.map(r=>`<tr>
+          <td class="strong">${esc(r.metric)}</td>
+          <td class="num muted">${esc(r.from)}</td>
+          <td class="num strong">${esc(r.to)}</td>
+          <td class="num ${r.up?'up':'down'}">${esc(r.delta)}</td>
+          <td class="small">${esc(r.driver)}</td>
+          <td><span class="citation">${esc(r.src)}</span></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  </div>
+  <div class="alert alert-warn" style="margin-top:var(--space-4)">
+    <span>⚠️</span><div><strong>Restatement check.</strong> No prior-period restatements were detected for ${c.ticker} FY2025. If a restatement exists, the FY2024 column above would be replaced with the restated figure and flagged. This prototype does not exercise restatement detection.</div>
+  </div>`;
+}
+
+function viewThesis(){
+  const t = state.ticker, c = COMPANIES[t], th = loadThesis(t), x = M(t);
+  const ALL_WATCH = ['Operating cash flow','Free cash flow','Net margin','Finance costs','Dividend growth',
+    'Cost-to-income','NPL ratio','Capital adequacy','Receivables','Operating expenses','Total debt','Profit margin'];
+  const valOf = w => {
+    const l = w.toLowerCase();
+    if (l.includes('cash flow') && !l.includes('free')) return bn(c.m.ocf[4])+' ('+pctS(x.ocfGrowth)+')';
+    if (l.includes('free cash')) return bn(x.fcf[4])+' ('+pctS(x.fcfDelta)+')';
+    if (l.includes('margin') || l.includes('profit margin')) return x.netMargin[4].toFixed(1)+'% ('+ppS(x.marginDelta)+')';
+    if (l.includes('cost')) return c.m.costToIncome?c.m.costToIncome[4].toFixed(1)+'%':'n/a';
+    if (l.includes('npl')) return c.m.npl?c.m.npl[4].toFixed(1)+'%':'n/a';
+    if (l.includes('capital')) return c.m.car?c.m.car[4].toFixed(1)+'%':'n/a';
+    if (l.includes('receivable')) return c.m.receivables?bn(c.m.receivables[4])+' ('+pctS(pct(c.m.receivables[3],c.m.receivables[4]))+')':'n/a';
+    if (l.includes('operating expense')) return c.m.opex?bn(c.m.opex[4])+' ('+pctS(growth(c.m.opex,4))+')':'n/a';
+    if (l.includes('debt')) return bn(c.m.debt[4])+' ('+pctS(pct(c.m.debt[3],c.m.debt[4]))+')';
+    if (l.includes('finance cost')) return bn(c.m.debt[4]-c.m.debt[3])+' new borrowing';
+    if (l.includes('dividend')) return Naira+c.m.dps[4].toFixed(2)+' ('+(x.dpsGrowth!==null?pctS(x.dpsGrowth):'—')+')';
+    return '—';
+  };
+  const current = (th.watch||[]).map(w=>{
+    const l = w.toLowerCase(); let moved=false;
+    if (l.includes('cash flow')&&!l.includes('free')) moved = x.ocfGrowth<0;
+    if (l.includes('free cash')) moved = x.fcfDelta<0;
+    if (l.includes('margin')) moved = x.marginDelta<0;
+    if (l.includes('cost')) moved = c.m.costToIncome && pct(c.m.costToIncome[3],c.m.costToIncome[4])>0;
+    if (l.includes('npl')) moved = c.m.npl && pct(c.m.npl[3],c.m.npl[4])>0;
+    if (l.includes('capital')) moved = c.m.car && c.m.car[4]<20;
+    if (l.includes('receivable')) moved = c.m.receivables && pct(c.m.receivables[3],c.m.receivables[4])>15;
+    if (l.includes('operating expense')) moved = c.m.opex && growth(c.m.opex,4)>x.revYoy;
+    if (l.includes('debt')) moved = pct(c.m.debt[3],c.m.debt[4])>x.npGrowth;
+    if (l.includes('dividend')) moved = (x.dpsGrowth||0)<0;
+    return { w, moved, val: valOf(w) };
+  });
+
+  return `
+  <div class="page-head">
+    <h1>My thesis — ${esc(c.short)}</h1>
+    <p>A structured record of your reasoning, the metrics you are watching, and how the latest evidence relates. DataLens organises this; it does not decide whether your thesis is correct.</p>
+  </div>
+
+  <div class="panel" style="margin-bottom:var(--space-4)">
+    <div class="panel-head"><h2>Thesis sections</h2>
+      <div class="row">
+        <span class="pill">saved in this browser</span>
+        <button class="btn btn-primary btn-sm" id="thesisSave">Save thesis</button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="thesis-grid">
+        ${['growth','profitability','strength'].map(k=>`
+          <div class="thesis-col">
+            <h4>${k==='strength'?'Financial strength':k[0].toUpperCase()+k.slice(1)}</h4>
+            <textarea class="textarea" data-thesis="${k}" placeholder="Your reasoning for this pillar…">${esc(th[k]||'')}</textarea>
+          </div>`).join('')}
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:var(--space-4)">
+    <div class="panel-head"><h2>Things I'm watching</h2><span class="pill">${(th.watch||[]).length} metrics</span></div>
+    <div class="panel-body">
+      <p class="xs muted" style="margin-bottom:var(--space-3)">Selected metrics are checked whenever a new report is processed. A change in direction raises an alert — without any buy, hold or sell suggestion.</p>
+      <div class="watch" style="margin-bottom:var(--space-4)">
+        ${ALL_WATCH.map(w=>`<button class="watch-chip ${(th.watch||[]).includes(w)?'on':''}" data-watch="${esc(w)}">${(th.watch||[]).includes(w)?'✓ ':'+ '}${esc(w)}</button>`).join('')}
+      </div>
+      ${current.length?`
+        <div class="divider"></div>
+        <div class="micro" style="margin-bottom:var(--space-3)">FY2025 values against your watchlist</div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Watchlist item</th><th class="num">FY2025 value</th><th>Status</th><th>Explore</th></tr></thead>
+          <tbody>${current.map(r=>`<tr>
+            <td class="strong">${r.moved?'⚠ ':''}${esc(r.w)}</td>
+            <td class="num">${esc(r.val)}</td>
+            <td><span class="badge ${r.moved?BADGE.warning:BADGE.success}"><span class="badge-dot ${DOT[r.moved?'warning':'success']}"></span>${r.moved?'Moved':'Stable'}</span></td>
+            <td><button class="btn btn-ghost btn-sm" data-ask="What changed in ${esc(r.w)} for ${c.ticker}?">Investigate →</button></td>
+          </tr>`).join('')}</tbody>
+        </table></div>`:'<p class="xs muted">Nothing on the watchlist yet. Add a metric above.</p>'}
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>Version history</h2><span class="pill">append-only</span></div>
+    <div class="panel-body">
+      <p class="xs muted" style="margin-bottom:var(--space-3)">Every save creates an immutable version so you can see how your thinking changed over time — and whether the evidence still supports the earlier version.</p>
+      <div class="version-row"><span class="mono">v1 · initial thesis</span><span class="muted">${c.ticker} · created with workspace</span></div>
+      <div class="version-row"><span class="mono">v2 · FY2025 review</span><span class="muted">${current.filter(r=>r.moved).length} watchlist item(s) moved</span></div>
+    </div>
+  </div>`;
+}
+
+function viewReports(){
+  const t = state.ticker, c = COMPANIES[t];
+  const files = YEARS.map((y,i)=>({ yr:y, size:(2.1+i*0.3).toFixed(1), pages:180+i*14,
+    status:'Extracted', notes:(i===4?3:1), conf:(i===4?92:97) }));
+  return `
+  <div class="page-head">
+    <h1>Reports for ${esc(c.short)}</h1>
+    <p>Uploaded annual reports, processing status and extraction confidence. Multiple reports per company build a connected history rather than overwriting each other.</p>
+  </div>
+
+  <div class="panel" style="margin-bottom:var(--space-4)">
+    <div class="panel-head"><h2>Upload a report</h2><span class="pill">PDF · XBRL · Excel</span></div>
+    <div class="panel-body">
+      <div class="dropzone" id="dropzone">
+        <div class="dropzone-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <div class="strong">Drop an annual report here</div>
+        <p class="xs muted" style="margin:var(--space-1) 0 var(--space-3)">Up to 50 MB. Extraction runs in the background and reports page-level confidence.</p>
+        <button class="btn btn-primary btn-sm" id="simUpload">Simulate upload &amp; extraction</button>
+      </div>
+      ${state.processing?`
+        <div style="margin-top:var(--space-5)">
+          <div class="row between" style="margin-bottom:var(--space-2)">
+            <span class="strong small">${esc(state.uploadStep)}</span>
+            <span class="mono xs muted">${state.progress}%</span>
+          </div>
+          <div class="progress"><div class="progress-fill" style="width:${state.progress}%"></div></div>
+        </div>`:''}
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2>Uploaded reports</h2><span class="pill">${files.length} reports · ${files.reduce((a,f)=>a+f.notes,0)} notes flagged</span></div>
+    <div class="panel-body">
+      ${files.map((f,i)=>`
+        <div class="report-row ${i===files.length-1?'new':''}">
+          <div class="file-ico">PDF</div>
+          <div style="flex:1;min-width:0">
+            <div class="strong small">${c.ticker} ${f.yr} Annual Report</div>
+            <div class="xs muted">${f.pages} pages · ${f.size} MB · uploaded ${i===0?'today':(files.length-i)+' days ago'}</div>
+          </div>
+          <div class="row">
+            ${f.notes?`<span class="badge badge-warning"><span class="badge-dot dot-warning"></span>${f.notes} note${f.notes>1?'s':''} flagged</span>`:''}
+            <span class="badge badge-neutral" title="Extraction confidence">${f.conf}% conf.</span>
+            <span class="badge badge-success"><span class="badge-dot dot-success"></span>${f.status}</span>
+          </div>
+        </div>`).join('')}
+      <div class="alert alert-warn" style="margin-top:var(--space-4)">
+        <span>⚠️</span><div>${c.ticker} FY2025 has ${files[4].notes} flagged note sections where table structure was not confidently recognised. Figures in those sections are excluded from calculated metrics until reviewed — DataLens would rather omit a number than invent one.</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* Lazy thunks so later-assigned wrappers (e.g. the concept panel) are picked up */
+const VIEWS = {
+  snapshot:()=>viewSnapshot(), chat:()=>viewChat(), signals:()=>viewSignals(),
+  peers:()=>viewPeers(), changes:()=>viewChanges(), thesis:()=>viewThesis(),
+  reports:()=>viewReports()
+};
+
+function setView(v){
+  state.view = v;
+  document.querySelectorAll('#appNav button').forEach(b=>b.classList.toggle('on', b.dataset.view===v));
+  renderSidebar();
+  document.getElementById('content').innerHTML = VIEWS[v]();
+  if (v==='chat'){ const l=document.getElementById('chatLog'); if(l) l.scrollTop=l.scrollHeight; }
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function render(){ setView(state.view); }
+
+/* ==================================================================
+   14. INTERACTIONS
+   ================================================================== */
+function ask(text){
+  if (!text || !text.trim()) return;
+  const t = state.ticker;
+  state.chat[t].push({ role:'user', text:text.trim() });
+  const log = document.getElementById('chatLog');
+  if (log){
+    log.insertAdjacentHTML('beforeend', `<div class="bubble bubble-user">${esc(text.trim())}</div>`);
+    document.getElementById('typing').style.display='block';
+    log.scrollTop = log.scrollHeight;
+  }
+  setTimeout(()=>{
+    const r = respond(text, t);
+    state.chat[t].push({ role:'ai', text:r.text, cites:r.citations });
+    if (log){
+      const ty = document.getElementById('typing'); if (ty) ty.style.display='none';
+      log.insertAdjacentHTML('beforeend',
+        `<div class="bubble bubble-ai">${esc(r.text)}${r.citations.length?`<div class="bubble-cites">${r.citations.map(x=>`<span class="citation" data-page="${x.page}">${esc(x.label)}</span>`).join('')}</div>`:''}</div>`);
+      log.scrollTop = log.scrollHeight;
+    }
+  }, 620);
+}
+
+function closeDrawers(){
+  document.getElementById('pickScrim').classList.remove('on');
+  document.getElementById('picker').classList.remove('on');
+  document.getElementById('evScrim').classList.remove('on');
+  document.getElementById('evDrawer').classList.remove('on');
+}
+
+let toastT;
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.innerHTML = '<span class="live-dot"></span>'+esc(msg);
+  el.classList.add('on');
+  clearTimeout(toastT);
+  toastT = setTimeout(()=>el.classList.remove('on'), 2600);
+}
+
+/* nav */
+document.getElementById('appNav').addEventListener('click', e=>{
+  const b = e.target.closest('[data-view]'); if(!b) return;
+  setView(b.dataset.view);
+});
+
+/* global delegated handlers */
+document.addEventListener('click', e=>{
+  const jump = e.target.closest('[data-view-jump]');
+  if (jump){ setView(jump.dataset.viewJump); return; }
+
+  const askBtn = e.target.closest('[data-ask]');
+  if (askBtn){
+    if (state.view!=='chat'){
+      setView('chat');
+      setTimeout(()=>ask(askBtn.dataset.ask), 200);
+    } else ask(askBtn.dataset.ask);
+    return;
+  }
+
+  const evBtn = e.target.closest('[data-ev]');
+  if (evBtn){ try { openEvidence(JSON.parse(evBtn.dataset.ev)); } catch(err){} return; }
+
+  const pageBtn = e.target.closest('[data-page]');
+  if (pageBtn){
+    const c = COMPANIES[state.ticker], pg = pageBtn.dataset.page;
+    openEvidence({ company:state.ticker, metricKey:'source', label:pageBtn.textContent.trim(),
+      valueText:'Report reference', calc:null, srcPage:pg,
+      note:`This citation points to page ${pg} of the ${c.ticker} ${YEARS[4]} Annual Report. In the full product the source page renders here with the original table image highlighted.` });
+    return;
+  }
+
+  const conBtn = e.target.closest('[data-concept]');
+  if (conBtn){
+    const key = conBtn.dataset.concept;
+    const map = { growth:'roe', profitability:'roe', cashflow:'ocf', strength:'ebitda', returns:'fcf', valuation:'pe' };
+    state.concept = map[key] || 'roe';
+    state.conceptDepth = 'standard';
+    setView('snapshot');
+    const el = document.getElementById('conceptPanel');
+    if (el) el.scrollIntoView({behavior:'smooth', block:'center'});
+    return;
+  }
+
+  const closeBtn = e.target.closest('[data-close]');
+  if (closeBtn){ closeDrawers(); return; }
+
+  const depBtn = e.target.closest('[data-depth]');
+  if (depBtn){
+    state.conceptDepth = depBtn.dataset.depth;
+    document.querySelectorAll('[data-depth]').forEach(b=>b.classList.toggle('on', b.dataset.depth===state.conceptDepth));
+    renderConcept();
+    return;
+  }
+
+  const watchBtn = e.target.closest('[data-watch]');
+  if (watchBtn){
+    const th = loadThesis(state.ticker);
+    const w = watchBtn.dataset.watch;
+    th.watch = th.watch || [];
+    const i = th.watch.indexOf(w);
+    if (i>=0) th.watch.splice(i,1); else th.watch.push(w);
+    try { localStorage.setItem(thesisKey(state.ticker), JSON.stringify(th)); } catch(e){}
+    render();
+    return;
+  }
+});
+
+/* concept panel */
+function renderConcept(){
+  const el = document.getElementById('conceptBody'); if (!el) return;
+  const c = COMPANIES[state.ticker], x = M(state.ticker), d = CONCEPTS[state.concept];
+  const dmap = { growth:'roe', profitability:'roe', cashflow:'ocf', strength:'ebitda', returns:'fcf', valuation:'pe' };
+  const realKey = dmap[state.concept] || state.concept;
+  const def = CONCEPTS[realKey];
+  document.getElementById('conceptName').textContent = def.name;
+  const txt = state.conceptDepth==='quick' ? def.quick
+            : state.conceptDepth==='standard' ? def.standard
+            : def.deep(c, x);
+  el.innerHTML = `<div class="micro" style="margin-bottom:var(--space-2)">${state.conceptDepth} explanation</div>${esc(txt).replace(/\n/g,'<br>')}`;
+}
+
+/* chat field */
+document.addEventListener('keydown', e=>{
+  if (e.key==='Enter' && e.target.id==='chatField'){ ask(e.target.value); e.target.value=''; }
+});
+document.addEventListener('click', e=>{
+  if (e.target.id==='chatSend'){
+    const f = document.getElementById('chatField');
+    ask(f.value); f.value='';
+  }
+  if (e.target.id==='winSel'){ /* select uses change */ }
+});
+document.addEventListener('change', e=>{
+  if (e.target.id==='winSel'){ state.window = parseInt(e.target.value,10); render(); }
+});
+
+/* company picker */
+function openPicker(){
+  document.getElementById('pickerBody').innerHTML = TICKER_ORDER.map(t=>{
+    const c = COMPANIES[t], x = M(t), sigs = computeSignals(t);
+    const mat = sigs.filter(s=>s.sev==='danger').length;
+    return `<div class="version-row" data-pick="${t}" style="cursor:pointer;margin-bottom:var(--space-2)">
+      <div style="display:flex;gap:var(--space-3);align-items:center">
+        <span class="co-tick">${t}</span>
+        <div>
+          <div class="strong small">${c.name}</div>
+          <div class="xs muted">${c.sector} · ${c.industry}</div>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div class="mono small">${Naira}${c.price.toFixed(2)}</div>
+        <div class="xs ${mat?'down':'muted'}">${mat?mat+' material signal'+(mat>1?'s':''):'no material signals'}</div>
+      </div>
+    </div>`;
+  }).join('') + `<p class="xs muted" style="margin-top:var(--space-3)">In the full product this is the saved workspace. Each company keeps its own reports, chat history, thesis and watchlist.</p>`;
+  document.getElementById('pickScrim').classList.add('on');
+  document.getElementById('picker').classList.add('on');
+}
+document.getElementById('pickerBody').addEventListener('click', e=>{
+  const r = e.target.closest('[data-pick]'); if(!r) return;
+  state.ticker = r.dataset.pick;
+  document.getElementById('coTick').textContent = state.ticker;
+  document.getElementById('coName').textContent = COMPANIES[state.ticker].short;
+  closeDrawers(); render();
+  toast('Switched to '+state.ticker);
+});
+document.getElementById('coSwitch').addEventListener('click', openPicker);
+document.getElementById('coSwitch').addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openPicker(); } });
+
+/* scrims */
+document.getElementById('pickScrim').addEventListener('click', closeDrawers);
+document.getElementById('evScrim').addEventListener('click', closeDrawers);
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeDrawers(); });
+
+/* theme */
+document.getElementById('themeBtn').addEventListener('click', ()=>{
+  const root = document.documentElement;
+  const next = root.getAttribute('data-theme')==='light' ? 'dark' : 'light';
+  root.setAttribute('data-theme', next);
+  document.getElementById('themeBtn').textContent = next==='light' ? '◑' : '◐';
+  try { localStorage.setItem('datalens-theme', next); } catch(e){}
+});
+
+/* thesis save */
+document.addEventListener('click', e=>{
+  if (e.target.id==='thesisSave'){
+    const th = loadThesis(state.ticker);
+    document.querySelectorAll('[data-thesis]').forEach(ta=>{ th[ta.dataset.thesis] = ta.value; });
+    try { localStorage.setItem(thesisKey(state.ticker), JSON.stringify(th)); } catch(err){}
+    toast('Thesis saved · watchlist monitored on next report');
+  }
+});
+
+/* simulated upload */
+const UPLOAD_STEPS = [
+  [12,'Reading PDF structure'],
+  [26,'Extracting text from 236 pages'],
+  [41,'Detecting financial tables'],
+  [58,'Parsing income statement, balance sheet, cash flow'],
+  [72,'Mapping line items to canonical schema'],
+  [84,'Flagging restatements and missing periods'],
+  [93,'Chunking tables for retrieval'],
+  [100,'Extraction complete']
+];
+document.addEventListener('click', e=>{
+  if (e.target.id==='simUpload'){ startUpload(); }
+  if (e.target.id==='dropzone' || e.target.closest('#dropzone')?.id==='dropzone'){ }
+});
+function startUpload(){
+  if (state.processing) return;
+  state.processing = true; state.progress = 0;
+  render();
+  let i = 0;
+  const step = ()=>{
+    if (i>=UPLOAD_STEPS.length){
+      state.processing = false; state.uploadStep='';
+      render();
+      toast('Report extracted · 3 note sections flagged for review');
+      return;
+    }
+    state.progress = UPLOAD_STEPS[i][0];
+    state.uploadStep = UPLOAD_STEPS[i][1];
+    render();
+    i++;
+    setTimeout(step, 520);
+  };
+  setTimeout(step, 320);
+}
+
+/* concept panel injection into snapshot view */
+const _origViewSnapshot = viewSnapshot;
+viewSnapshot = function(){
+  let html = _origViewSnapshot();
+  const c = COMPANIES[state.ticker];
+  const panel = `
+  <div class="panel" id="conceptPanel">
+    <div class="panel-head">
+      <h3 id="conceptName">Financial concept</h3>
+      <div class="depth-tabs" style="width:260px;margin:0">
+        <button data-depth="quick" class="${state.conceptDepth==='quick'?'on':''}">Quick</button>
+        <button data-depth="standard" class="${state.conceptDepth==='standard'?'on':''}">Standard</button>
+        <button data-depth="deep" class="${state.conceptDepth==='deep'?'on':''}">Deep</button>
+      </div>
+    </div>
+    <div class="panel-body"><div class="concept-body" id="conceptBody"></div></div>
+  </div>`;
+  return html.replace(/(<div class="two-col">)/, panel+'$1');
+};
+
+/* ticker tape */
+function buildTape(){
+  const items = TICKER_ORDER.map(t=>{
+    const c = COMPANIES[t];
+    const d = [0.84,2.31,-0.47,1.12,0.63,-1.08,3.41,-0.29][TICKER_ORDER.indexOf(t)];
+    return `<span class="ticker-item"><span class="ticker-sym">${c.ticker}</span><span class="ticker-price">${Naira}${c.price.toFixed(2)}</span><span class="ticker-delta ${d>=0?'up':'down'}">${d>=0?'+':'−'}${Math.abs(d).toFixed(2)}%</span></span>`;
+  }).join('');
+  const asi = `<span class="ticker-item"><span class="ticker-sym">NGX ASI</span><span class="ticker-price">98,412.06</span><span class="ticker-delta up">+0.84%</span></span>`;
+  document.getElementById('tape').innerHTML = asi+items+asi+items;
+}
+
+/* boot */
+(function boot(){
+  try {
+    const th = localStorage.getItem('datalens-theme');
+    if (th==='light'){ document.documentElement.setAttribute('data-theme','light'); document.getElementById('themeBtn').textContent='◑'; }
+  } catch(e){}
+  buildTape();
+  setView('snapshot');
+  setTimeout(renderConcept, 30);
+})();
+</script>
+</body>
+</html>
