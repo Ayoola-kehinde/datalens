@@ -11,8 +11,11 @@
 <meta name="color-scheme" content="dark light">
 <meta name="description" content="Turn complex company annual reports into clear, evidence-backed investment research.">
 
-<!-- ===== Runtime config (gitignored; app falls back to bundled sample data if absent) ===== -->
-<script src="config.js" onerror="/* config.js not deployed yet - running on bundled sample data */"></script>
+<!-- ===== Public runtime config: Supabase URL + anon public key only =====
+     Committed deliberately — both values are designed to be visible and
+     are protected by Row Level Security. Groq and Slack keys are NOT
+     here; they live in Supabase Edge secrets behind the triage function. -->
+<script src="config.js" onerror="window.DATALENS_CONFIG=undefined"></script>
 
 <!-- Supabase JS client. The anon key is public by design; RLS is what protects data. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -585,6 +588,14 @@ const DataStore = (function(){
   function init(){
     if (ready) return client;
     if (!url || !anon){ log("no config.js — running on bundled sample data"); return null; }
+
+    // config.js is committed with obvious placeholders. Treat an unfilled
+    // value as "not configured" rather than attempting a doomed connection.
+    if (/PASTE_YOUR|YOUR-|<.*>|example/i.test(url) || /PASTE_YOUR|YOUR-|<.*>|example/i.test(anon)){
+      log("config.js still has placeholder values — running on bundled sample data");
+      return null;
+    }
+
     if (typeof window.supabase === "undefined"){
       log("supabase-js failed to load from CDN — running on bundled sample data", true);
       return null;

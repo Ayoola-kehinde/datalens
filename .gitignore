@@ -26,19 +26,24 @@ app-debug.apk
 .env.local
 .env*.local
 
-# Runtime config carries the Supabase anon key. Gitignored on purpose so a
-# shared repo never carries live project credentials. The anon key is public
-# by design, but keeping it out of git means you can rotate or scope it
-# without history rewrites.
-config.js
+# config.js IS committed on purpose — it carries only the Supabase URL and
+# the anon public key, both of which are designed to be visible. Data is
+# protected by Row Level Security, not by keeping the key secret.
+#
+# config.local.js is for local-only overrides during development and is
+# never deployed.
+config.local.js
 
-# Explicitly deny anything that looks like a server-side key, so a stray
-# copy-paste into config.js or a .env file cannot reach the remote.
+# Server-side secrets must never reach a committed file, whatever it is
+# named. These deny rules catch a paste into the wrong place.
 *GROQ*
 *gsk_*
 *SLACK*
 *slack*
+hooks.slack.com
 *.webhook
+*.jks
+*.keystore
 
 # Firebase
 .firebase/

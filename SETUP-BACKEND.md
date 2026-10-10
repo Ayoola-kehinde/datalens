@@ -7,22 +7,41 @@ Estimated setup: **20 minutes.**
 
 ---
 
-## The security rule that shapes this whole guide
+## Where the two live keys now
 
-| Credential | Where it goes | Why |
+`config.js` is **committed to the repository** and served by GitHub Pages, so the deployed
+build and the APK both pick it up with no extra step.
+
+That is safe because only these two values are in it:
+
+| Value | In `config.js`? | Why it's acceptable |
 |---|---|---|
-| `SUPABASE_URL` | `config.js` (public) | A URL is not a secret |
-| `SUPABASE_ANON_KEY` | `config.js` (public) | **Designed to be public.** Supabase protects data with Row Level Security, not with secrecy. Safe in client code |
-| `GROQ_API_KEY` | **Edge Function secret only** | A Groq key in client-side HTML is readable by anyone who views source or opens DevTools |
-| `SLACK_WEBHOOK_URL` | **Edge Function secret only** | Anyone holding this URL can post to your Slack channel. Treat it like a password |
+| `SUPABASE_URL` | ✅ yes | A project URL is not a secret |
+| `SUPABASE_ANON_KEY` | ✅ yes | **Public by design.** Supabase's dashboard labels it *anon public*. Data is protected by Row Level Security, not by keeping the key secret |
+| `GROQ_API_KEY` | ❌ never | Would be readable by anyone viewing page source |
+| `SLACK_WEBHOOK_URL` | ❌ never | Anyone holding it can post to your channel |
 
-This repository is **public**. Anything committed here is published to the world.
+The anon key is shipped in the HTML precisely because Supabase expects it there. What stops
+one investor reading another's thesis is the policy
+`auth.uid() = user_id` in `supabase/migrations/0001_init.sql` — not the secrecy of the key.
 
-`config.js` is gitignored and `.gitignore` also denies anything matching `*GROQ*`,
-`*gsk_*`, `*SLACK*` and `*.webhook` — so a stray paste into the wrong file fails to commit.
+`.gitignore` denies `*GROQ*`, `*gsk_*`, `*SLACK*`, `hooks.slack.com` and `*.webhook`, so a
+stray paste into any committed file fails to commit rather than leaking to a public repo.
 
-The browser calls **one** server-side endpoint (`triage`), which holds both secrets. It never
-sees them.
+---
+
+## Step 0 — Fill in the two public values
+
+`config.js` currently holds placeholders. The app detects them and stays on sample data
+(this is deliberate — it fails visibly rather than silently). Open it and paste:
+
+```js
+SUPABASE_URL: "https://YOUR-PROJECT-REF.supabase.co",
+SUPABASE_ANON_KEY: "eyJhbGciOi..."
+```
+
+From **Project Settings → Data API**. Then commit and push. That single push activates the
+live build and the APK together.
 
 ---
 
@@ -38,8 +57,8 @@ sees them.
 **Easiest — SQL editor.** Open **SQL Editor → New query**, paste the whole of
 `supabase/migrations/0001_init.sql`, and click **Run**.
 
-That creates five tables, enables RLS with policies, and seeds the four demo companies with
-their five-year extractions.
+That creates six tables, enables RLS with column-level grants, and seeds the four demo
+companies with their five-year extractions.
 
 **Or with the CLI:**
 
@@ -50,25 +69,41 @@ supabase link --project-ref YOUR_PROJECT_REF
 supabase db push
 ```
 
-### Verify RLS is actually on
+### Verify the security posture
 
-This is the step worth doing properly. Open **Table Editor → theses** and confirm it exists,
-then run:
+RLS is the only thing protecting personal data, so check it rather than assume it.
 
 ```sql
--- Should return 0 rows when not signed in
-select * from theses;
+-- 1. Every table must report enabled = true
+select relname, relrowsecurity from pg_class
+where relnamespace = 'public'::regnamespace and relkind = 'r'
+order by relname;
 
--- Should return the 4 seeded companies
-select ticker, name from companies order by ticker;
+-- 2. Public tables: read only, no write policies for anon
+select tablename, policyname, cmd, roles::text from pg_policies
+where schemaname = 'public' order by tablename, cmd;
 
--- Confirm policies exist
-select tablename, policyname, cmd from pg_policies
-where schemaname = 'public' order by tablename;
+-- 3. Confirm anon has no write rights on extractions
+select has_table_privilege('anon','public.extractions','INSERT') as anon_can_insert,
+       has_table_privilege('anon','public.extractions','UPDATE') as anon_can_update,
+       has_table_privilege('anon','public.theses','SELECT')     as anon_can_read_theses;
+-- expect all three = false
+
+-- 4. Confirm column-level UPDATE is narrowed to the decision columns
+select column_name, is_updatable from information_schema.columns
+where table_name = 'extractions' and table_schema = 'public'
+order by ordinal_position;
+-- is_updatable should be YES for status/decided_at/decided_by/decision_note
+-- and NO for payload/confidence/groq_*
+
+-- 5. Public data visible
+select ticker from companies order by ticker;
+
+-- 6. Private data must return nothing when not signed in
+select count(*) from theses;   -- expect 0
 ```
 
-If `theses` returns rows to an anonymous session, **stop** — that is a privacy breach, and
-the policies have not applied.
+If `theses` returns rows to an anonymous session, **stop** — that is a privacy breach.
 
 ## Step 3 — Deploy the triage Edge Function
 
@@ -91,28 +126,22 @@ supabase secrets list
 You should see both names listed with a masked value. **Never paste these into `config.js`,
 a `.env` file, or any commit.**
 
-## Step 5 — Add the public config
+## Step 5 — Confirm config.js is committed
+
+`config.js` is deliberately tracked, unlike a normal `.env`:
 
 ```powershell
-Copy-Item config.example.js config.js
-notepad .\config.js
+git ls-files config.js
+# should print: config.js
 ```
 
-Fill in, from **Project Settings → Data API**:
-
-```js
-SUPABASE_URL: "https://YOUR-PROJECT-REF.supabase.co",
-SUPABASE_ANON_KEY: "eyJhbGciOi...",
-TRIAGE_FUNCTION: "triage"
-```
-
-The anon key is labelled *anon public* in that panel. That is the one you want.
-
-Confirm it's ignored by git before you commit anything:
+If it prints nothing, a stray deny rule is matching it:
 
 ```powershell
-git status --short config.js    # must print nothing
+git check-ignore -v config.js
 ```
+
+You want that to report *no matching pattern*.
 
 ## Step 6 — Enable email sign-in
 
