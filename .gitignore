@@ -21,10 +21,24 @@ app-debug.apk
 *.jks
 !debug.keystore
 
-# Secrets — never commit. Only .env.example belongs in the repo.
+# Secrets — never commit. Only .env.example and config.example.js belong in the repo.
 .env
 .env.local
 .env*.local
+
+# Runtime config carries the Supabase anon key. Gitignored on purpose so a
+# shared repo never carries live project credentials. The anon key is public
+# by design, but keeping it out of git means you can rotate or scope it
+# without history rewrites.
+config.js
+
+# Explicitly deny anything that looks like a server-side key, so a stray
+# copy-paste into config.js or a .env file cannot reach the remote.
+*GROQ*
+*gsk_*
+*SLACK*
+*slack*
+*.webhook
 
 # Firebase
 .firebase/

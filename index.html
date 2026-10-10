@@ -11,6 +11,12 @@
 <meta name="color-scheme" content="dark light">
 <meta name="description" content="Turn complex company annual reports into clear, evidence-backed investment research.">
 
+<!-- ===== Runtime config (gitignored; app falls back to bundled sample data if absent) ===== -->
+<script src="config.js" onerror="/* config.js not deployed yet - running on bundled sample data */"></script>
+
+<!-- Supabase JS client. The anon key is public by design; RLS is what protects data. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
 <!-- Install / share metadata -->
 <link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
@@ -472,11 +478,16 @@ tr.self td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 <script>
 "use strict";
 /* ==================================================================
-   1. SAMPLE DATA  (₦bn unless noted; illustrative, not real results)
+   1. DATA SOURCE
+   ------------------------------------------------------------------
+   The bundled sample below is the fallback. If config.js supplies
+   Supabase credentials, live rows replace it at boot via
+   DataStore.hydrate() and every view re-renders. Nothing else in
+   this file changes — all downstream code reads `COMPANIES`.
    ================================================================== */
 const YEARS = [2021, 2022, 2023, 2024, 2025];
 
-const COMPANIES = {
+const SAMPLE_DATA = {
   GTCO: {
     ticker:"GTCO", name:"Guaranty Trust Holding Plc", short:"Guaranty Trust",
     sector:"Financials", industry:"Banking", exchange:"NGX",
@@ -535,10 +546,296 @@ const COMPANIES = {
       strength:"Leverage has increased steadily alongside expansion capex.", watch:["Receivables","Operating expenses","Free cash flow","Debt"] }
   }
 };
+
+/* Live store. Starts as the bundled sample so every view works offline,
+   then swaps to Supabase rows when credentials are present. */
+let COMPANIES = SAMPLE_DATA;
+let DATA_SOURCE = "sample";
+
 const TICKER_ORDER = ["GTCO","ZNB","ACCESS","MTNN"];
 
 /* Page refs used by the traceability layer (illustrative) */
 const PAGE = { is:38, bs:41, cf:52, notes:57, ratios:16, dividend:64, segment:31, equityNote:67 };
+
+/* ==================================================================
+   2. DATA STORE — Supabase with graceful degradation
+   ------------------------------------------------------------------
+   Credentials arrive via config.js (gitignored). The anon key is
+   intended to be public; RLS policies are what actually protect data.
+
+   Groq and Slack are NEVER called from here. The browser invokes the
+   Supabase Edge Function `triage`, which holds both secrets. Calling
+   either API directly from client-side code would publish the key to
+   anyone who opens DevTools.
+   ================================================================== */
+const DataStore = (function(){
+
+  var cfg   = window.DATALENS_CONFIG || {};
+  var url   = cfg.SUPABASE_URL || "";
+  var anon  = cfg.SUPABASE_ANON_KEY || "";
+  var fnUrl = cfg.TRIAGE_FUNCTION || "triage";
+  var client = null;
+  var user   = null;
+  var ready  = false;
+
+  function log(msg, warn){
+    if (warn) console.warn("[DataLens]", msg); else console.log("[DataLens]", msg);
+  }
+
+  function init(){
+    if (ready) return client;
+    if (!url || !anon){ log("no config.js — running on bundled sample data"); return null; }
+    if (typeof window.supabase === "undefined"){
+      log("supabase-js failed to load from CDN — running on bundled sample data", true);
+      return null;
+    }
+    try {
+      client = window.supabase.createClient(url, anon, {
+        auth: { persistSession:true, autoRefreshToken:true }
+      });
+      ready = true;
+      log("supabase client initialised");
+    } catch (e) {
+      log("supabase init failed: " + e.message + " — running on bundled sample data", true);
+      client = null;
+    }
+    return client;
+  }
+
+  function session(){
+    try {
+      var s = client && client.auth && client.auth.session();
+      return s ? s.session : null;
+    } catch(e){ return null; }
+  }
+
+  /* ---------- companies + extractions ---------- */
+  async function fetchCompanies(){
+    var sb = init();
+    if (!sb) return null;
+    try {
+      var { data: cos, error: e1 } = await sb
+        .from("companies")
+        .select("id,ticker,name,short_name,sector,industry,kind,exchange")
+        .order("ticker");
+      if (e1) throw e1;
+
+      var ids = (cos||[]).map(function(c){ return c.id; });
+      var extById = {};
+      if (ids.length){
+        var { data: exs, error: e2 } = await sb
+          .from("extractions")
+          .select("id,company_id,fiscal_year,status,confidence,payload,groq_verdict,groq_rationale,groq_concerns")
+          .in("company_id", ids)
+          .order("fiscal_year", { ascending:false });
+        if (e2) throw e2;
+        (exs||[]).forEach(function(x){
+          var cur = extById[x.company_id];
+          if (!cur || x.fiscal_year > cur.fiscal_year) extById[x.company_id] = x;
+        });
+      }
+
+      if (!cos || !cos.length){ log("companies table is empty — staying on sample data", true); return null; }
+
+      var live = {};
+      var order = [];
+      cos.forEach(function(c){
+        var x = extById[c.id];
+        var p = (x && x.payload) || {};
+        live[c.ticker] = {
+          ticker: c.ticker,
+          name: c.name,
+          short: c.short_name || c.name,
+          sector: c.sector || "",
+          industry: c.industry || "",
+          kind: c.kind || "bank",
+          exchange: c.exchange || "NGX",
+          price: p.price != null ? p.price : 0,
+          priceAsOf: p.priceAsOf || "",
+          m: p.m || {},
+          thesis: p.thesis || { growth:"", profitability:"", strength:"", watch:[] },
+          _extractionId: x ? x.id : null,
+          _status: x ? x.status : null,
+          _confidence: x ? x.confidence : null,
+          _groq: x ? { verdict:x.groq_verdict, rationale:x.groq_rationale, concerns:x.groq_concerns } : null,
+          _live: true
+        };
+        order.push(c.ticker);
+      });
+
+      // Order to match the bundled demo ordering where possible.
+      order.sort(function(a,b){
+        var ia = TICKER_ORDER.indexOf(a), ib = TICKER_ORDER.indexOf(b);
+        return (ia<0?99:ia) - (ib<0?99:ib) || a.localeCompare(b);
+      });
+      return { companies: live, order: order };
+    } catch (e){
+      log("fetch failed: " + e.message + " — staying on sample data", true);
+      return null;
+    }
+  }
+
+  /* ---------- theses ---------- */
+  async function fetchThesis(ticker){
+    var sb = init();
+    if (!sb) return null;
+    var s = session(); if (!s) return null;
+    try {
+      var { data, error } = await sb
+        .from("theses")
+        .select("*")
+        .eq("company_id", resolveCompanyId(ticker))
+        .eq("user_id", s.user.id)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      return {
+        growth: data.growth || "",
+        profitability: data.profitability || "",
+        strength: data.strength || "",
+        watch: Array.isArray(data.watchlist) ? data.watchlist : [],
+        version: data.version || 1,
+        remote: true
+      };
+    } catch(e){
+      log("thesis fetch failed: " + e.message, true);
+      return null;
+    }
+  }
+
+  async function saveThesis(ticker, th){
+    var sb = init();
+    if (!sb) return { ok:false, local:true };
+    var s = session(); if (!s) return { ok:false, local:true, reason:"not signed in" };
+    try {
+      var cid = resolveCompanyId(ticker);
+      var row = {
+        user_id: s.user.id,
+        company_id: cid,
+        growth: th.growth || "",
+        profitability: th.profitability || "",
+        strength: th.strength || "",
+        watchlist: th.watch || []
+      };
+      var { error } = await sb.from("theses").upsert(row, { onConflict:"user_id,company_id" });
+      if (error) throw error;
+
+      var { data: existing } = await sb.from("theses")
+        .select("version").eq("user_id", s.user.id).eq("company_id", cid).maybeSingle();
+      var v = ((existing && existing.version) || 1);
+
+      await sb.from("thesis_versions").insert({
+        user_id: s.user.id, company_id: cid,
+        version: v, snapshot: row
+      });
+      return { ok:true, remote:true, version:v };
+    } catch(e){
+      log("thesis save failed: " + e.message + " — kept in local storage", true);
+      return { ok:false, local:true, reason:e.message };
+    }
+  }
+
+  var _idCache = {};
+  function resolveCompanyId(ticker){
+    var c = COMPANIES[ticker];
+    if (c && c._companyId) return c._companyId;
+    if (_idCache[ticker]) return _idCache[ticker];
+    return null;
+  }
+  function cacheIds(map){
+    (map||{}).forEach && (map.forEach(function(c){ _idCache[c.ticker] = c.id; COMPANIES[c.ticker]._companyId = c.id; }));
+  }
+
+  /* ---------- triage (Groq + Slack, both server-side) ---------- */
+  async function triage(payload){
+    var sb = init();
+    if (!sb) return { ok:false, reason:"Supabase not configured" };
+    try {
+      var { data, error } = await sb.functions.invoke(fnUrl, { body: payload });
+      if (error) throw error;
+      return { ok:true, result:data };
+    } catch(e){
+      return { ok:false, reason: e.message || "triage function unreachable" };
+    }
+  }
+
+  /* ---------- telemetry ---------- */
+  function track(name, props){
+    var sb = init(); if (!sb) return;
+    try {
+      var s = session();
+      var row = { name:name, properties:props||{} };
+      if (s) row.user_id = s.user.id;
+      sb.from("events").insert(row).then(function(){}, function(){});
+    } catch(e){ /* telemetry must never throw */ }
+  }
+
+  /* ---------- auth ---------- */
+  async function signIn(email, password){
+    var sb = init(); if (!sb) return { ok:false, reason:"Supabase not configured" };
+    var { data, error } = await sb.auth.signInWithPassword({ email:email, password:password });
+    if (error) return { ok:false, reason:error.message };
+    user = data.user; track("session_start",{});
+    return { ok:true, user:user };
+  }
+  async function signUp(email, password){
+    var sb = init(); if (!sb) return { ok:false, reason:"Supabase not configured" };
+    var { data, error } = await sb.auth.signUp({ email:email, password:password });
+    if (error) return { ok:false, reason:error.message };
+    user = data.user; return { ok:true, user:user };
+  }
+  async function signOut(){
+    var sb = init(); if (!sb) return { ok:false };
+    var { error } = await sb.auth.signOut();
+    if (!error) user = null;
+    return { ok:!error };
+  }
+  function currentUser(){ return user || (session() && session().user) || null; }
+  function isLive(){ return !!client; }
+
+  /* ---------- boot hydration ---------- */
+  async function hydrate(){
+    var sb = init(); if (!sb) return;
+    try {
+      var { data: s } = await sb.auth.getSession();
+      if (s && s.session) user = s.session.user;
+    } catch(e){}
+
+    var live = await fetchCompanies();
+    if (!live) return;
+    // resolve ids for thesis writes
+    try {
+      var { data: ids } = await sb.from("companies").select("id,ticker");
+      cacheIds(ids||[]);
+    } catch(e){}
+
+    COMPANIES = live.companies;
+    TICKER_ORDER.length = 0;
+    Array.prototype.push.apply(TICKER_ORDER, live.order);
+    DATA_SOURCE = "live";
+
+    // bring in any thesis the signed-in user already saved remotely
+    if (user){
+      for (var i=0;i<TICKER_ORDER.length;i++){
+        var tk = TICKER_ORDER[i];
+        var remote = await fetchThesis(tk);
+        if (remote){
+          COMPANIES[tk].thesis = {
+            growth: remote.growth, profitability: remote.profitability,
+            strength: remote.strength, watch: remote.watch
+          };
+        }
+      }
+    }
+    log("live data hydrated: " + TICKER_ORDER.length + " companies");
+  }
+
+  return {
+    init:init, hydrate:hydrate, fetchCompanies:fetchCompanies, isLive:isLive,
+    fetchThesis:fetchThesis, saveThesis:saveThesis, triage:triage, track:track,
+    signIn:signIn, signUp:signUp, signOut:signOut, currentUser:currentUser
+  };
+})();
 
 /* ==================================================================
    2. METRIC ENGINE — derives everything from the raw series
@@ -703,7 +1000,8 @@ const state = {
   processing:false,
   progress:0,
   uploadStep:'',
-  thesisDirty:false
+  thesisDirty:false,
+  triage:null
 };
 
 /* thesis persisted per company */
@@ -1329,6 +1627,20 @@ function renderSidebar(){
         <div class="xs muted">${c.sector} · ${c.industry}</div>
         <div class="xs muted">${c.exchange} · 5 reports loaded</div>
         <div class="divider"></div>
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <span class="xs muted">Data source</span>
+          <span class="badge ${DATA_SOURCE==='live'?BADGE.success:BADGE.neutral}">
+            <span class="badge-dot ${DATA_SOURCE==='live'?DOT.success:DOT.neutral}"></span>
+            ${DATA_SOURCE==='live'?'Supabase live':'Sample data'}
+          </span>
+        </div>
+        <div class="row" style="justify-content:space-between;align-items:center;margin-top:var(--space-2)">
+          <span class="xs muted">Account</span>
+          <span class="badge ${DataStore.currentUser()?BADGE.info:BADGE.neutral}">
+            ${DataStore.currentUser()?esc(DataStore.currentUser().email||'signed in'):'local only'}
+          </span>
+        </div>
+        <div class="divider"></div>
         <div class="row" style="justify-content:space-between">
           <div style="text-align:left"><div class="kpi-label">Price</div><div class="kpi-val" style="font-size:var(--text-base)">${Naira}${c.price.toFixed(2)}</div></div>
           <div style="text-align:right"><div class="kpi-label">Signals</div><div class="kpi-val ${sigs.filter(s=>s.sev==='danger').length?'down':''}" style="font-size:var(--text-base)">${sigs.length}</div></div>
@@ -1678,7 +1990,7 @@ function viewThesis(){
   <div class="panel" style="margin-bottom:var(--space-4)">
     <div class="panel-head"><h2>Thesis sections</h2>
       <div class="row">
-        <span class="pill">saved in this browser</span>
+        <span class="pill">${DataStore.isLive() && DataStore.currentUser() ? 'synced to your Supabase account' : 'saved in this browser'}</span>
         <button class="btn btn-primary btn-sm" id="thesisSave">Save thesis</button>
       </div>
     </div>
@@ -1725,6 +2037,74 @@ function viewThesis(){
   </div>`;
 }
 
+/* ---------- automated review result rendering ---------- */
+function renderTriageResult(r){
+  if (!r) return `<p class="xs muted">No review run yet.</p>`;
+
+  if (r.pending) return `<div class="typing" style="padding:8px 0"><span></span><span></span><span></span></div>
+    <p class="xs muted" style="margin-top:8px">Reviewing extraction quality…</p>`;
+
+  if (r.error){
+    return `<div class="alert alert-warn"><span>⚠️</span><div><strong>Triage unavailable</strong><br>${esc(r.error)}</div></div>`;
+  }
+
+  const v = r.verdict;
+  const meta = {
+    approved:   { badge:BADGE.success, label:'Approved for automatic publication', icon:'✓' },
+    needs_review:{ badge:BADGE.warning, label:'Needs human review',             icon:'⚠️' },
+    reject:     { badge:BADGE.danger,  label:'Rejected — document unusable',   icon:'❌' }
+  }[v] || { badge:BADGE.neutral, label:v||'unknown', icon:'•' };
+
+  const concerns = (r.concerns||[]).filter(Boolean);
+
+  return `
+    <div class="alert ${v==='approved'?'alert-ok':'alert-warn'}">
+      <span>${meta.icon}</span>
+      <div style="width:100%">
+        <span class="badge ${meta.badge}">${esc(meta.label)}</span>
+        <div class="small" style="margin-top:8px">${esc(r.rationale||'No rationale returned.')}</div>
+        ${concerns.length?`<ul class="xs sec" style="margin:10px 0 0;padding-left:18px;line-height:1.8">
+          ${concerns.map(c=>`<li>${esc(c)}</li>`).join('')}</ul>`:''}
+        <div class="row" style="margin-top:12px">
+          <span class="pill">model ${esc(r.model||'—')}</span>
+          ${r.gate?`<span class="pill">confidence ${r.gate.confidence}%</span>`:''}
+          ${r.gate && r.gate.weakestStatement?`<span class="pill">weakest stmt ${r.gate.weakestStatement}%</span>`:''}
+          ${r.gateOverrode?'<span class="badge badge-warning">gate overrode model</span>':''}
+          ${r.degraded?'<span class="badge badge-neutral">degraded path</span>':''}
+          ${r.slackNotified?'<span class="badge badge-info">Slack notified</span>':'<span class="pill">no Slack alert</span>'}
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ---------- build the payload the edge function expects ---------- */
+function buildTriagePayload(){
+  const t = state.ticker, c = COMPANIES[t];
+  const statements = {};
+  if (c.m.revenue)   statements.income_statement = 98;
+  if (c.m.equity)    statements.balance_sheet   = 95;
+  if (c.m.ocf)       statements.cash_flow       = 71;
+  const flagged = [
+    { page: 44, section:'operating expenses', issue:'column structure unrecognised' },
+    { page: 57, section:'receivables ageing', issue:'subtotal row ambiguous' }
+  ];
+  const unresolved = ['operating expenses FY2025','finance costs FY2024-25'];
+  const restatements = ['FY2024 revenue restated \u20a61.47T \u2192 \u20a61.44T'];
+  return {
+    company: c.ticker,
+    companyName: c.name,
+    fiscalYear: 2025,
+    extractionId: c._extractionId || null,
+    pages: 236,
+    confidence: 92,
+    statements: statements,
+    flagged: flagged,
+    unresolved: unresolved,
+    restatements: restatements,
+    source: 'DataLens demo triage'
+  };
+}
+
 function viewReports(){
   const t = state.ticker, c = COMPANIES[t];
   const files = YEARS.map((y,i)=>({ yr:y, size:(2.1+i*0.3).toFixed(1), pages:180+i*14,
@@ -1754,6 +2134,27 @@ function viewReports(){
           </div>
           <div class="progress"><div class="progress-fill" style="width:${state.progress}%"></div></div>
         </div>`:''}
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:var(--space-4)">
+    <div class="panel-head">
+      <h2>Automated review</h2>
+      <span class="pill">Groq · runs server-side</span>
+    </div>
+    <div class="panel-body">
+      <p class="xs muted" style="margin-bottom:var(--space-4)">
+        Sends an extraction-quality summary to the <strong>triage</strong> edge function. Groq judges whether the
+        extracted data is trustworthy enough to publish, and a Slack alert fires automatically if it returns
+        <code>needs_review</code> or <code>reject</code>. Your API keys never reach this browser.
+      </p>
+      <div class="row" style="margin-bottom:var(--space-4)">
+        <button class="btn btn-primary btn-sm" id="runTriage" ${DataStore.isLive()?'':'disabled'}>
+          ${DataStore.isLive()?'Run automated review':'Connect Supabase to enable'}
+        </button>
+        <span class="pill">${DATA_SOURCE==='live'?'live data':'bundled sample data'}</span>
+      </div>
+      <div id="triageResult">${renderTriageResult(state.triage)}</div>
     </div>
   </div>
 
@@ -1901,6 +2302,13 @@ document.addEventListener('click', e=>{
     const i = th.watch.indexOf(w);
     if (i>=0) th.watch.splice(i,1); else th.watch.push(w);
     try { localStorage.setItem(thesisKey(state.ticker), JSON.stringify(th)); } catch(e){}
+    // Mirror the watchlist change to Supabase when signed in.
+    if (DataStore.isLive() && DataStore.currentUser()){
+      DataStore.saveThesis(state.ticker, th).then(res=>{
+        if (res.remote) toast('Watchlist saved to your account');
+      });
+    }
+    DataStore.track('watchlist_toggled', { ticker: state.ticker, metric: w, on: i<0 });
     render();
     return;
   }
@@ -1982,13 +2390,33 @@ document.getElementById('themeBtn').addEventListener('click', ()=>{
   try { localStorage.setItem('datalens-theme', next); } catch(e){}
 });
 
-/* thesis save */
+/* thesis save — local always, Supabase when signed in */
 document.addEventListener('click', e=>{
   if (e.target.id==='thesisSave'){
     const th = loadThesis(state.ticker);
     document.querySelectorAll('[data-thesis]').forEach(ta=>{ th[ta.dataset.thesis] = ta.value; });
+    // Local write is always attempted first so nothing is lost offline.
     try { localStorage.setItem(thesisKey(state.ticker), JSON.stringify(th)); } catch(err){}
-    toast('Thesis saved · watchlist monitored on next report');
+    DataStore.track('thesis_saved', { ticker: state.ticker });
+
+    if (!DataStore.isLive()){
+      toast('Thesis saved on this device · connect Supabase to sync across devices');
+      return;
+    }
+    if (!DataStore.currentUser()){
+      toast('Thesis saved on this device · sign in to sync it to your account');
+      return;
+    }
+    const btn = e.target;
+    btn.disabled = true; btn.textContent = 'Saving…';
+    DataStore.saveThesis(state.ticker, th).then(res=>{
+      btn.disabled = false; btn.textContent = 'Save thesis';
+      if (res.remote) toast(`Thesis synced to your account (v${res.version})`);
+      else toast(`Saved locally only · ${res.reason||'sync failed'}`);
+    }).catch(()=>{
+      btn.disabled = false; btn.textContent = 'Save thesis';
+      toast('Saved locally · could not reach Supabase');
+    });
   }
 });
 
@@ -2005,8 +2433,48 @@ const UPLOAD_STEPS = [
 ];
 document.addEventListener('click', e=>{
   if (e.target.id==='simUpload'){ startUpload(); }
+  if (e.target.id==='runTriage'){ runTriage(); }
   if (e.target.id==='dropzone' || e.target.closest('#dropzone')?.id==='dropzone'){ }
 });
+
+/* Runs extraction triage through the Supabase Edge Function.
+   The browser never sees GROQ_API_KEY or SLACK_WEBHOOK_URL — both live
+   in edge secrets. This function only relays the verdict back. */
+async function runTriage(){
+  if (state.triage && state.triage.pending) return;
+  state.triage = { pending:true };
+  const box = document.getElementById('triageResult');
+  if (box) box.innerHTML = renderTriageResult(state.triage);
+  const btn = document.getElementById('runTriage');
+  if (btn) btn.disabled = true;
+
+  const payload = buildTriagePayload();
+  DataStore.track('triage_started', { company: payload.company });
+
+  const res = await DataStore.triage(payload);
+
+  if (res.ok){
+    const r = res.result || {};
+    state.triage = {
+      verdict: r.verdict, concerns: r.concerns, rationale: r.rationale,
+      model: r.model, gate: r.gate, degraded: r.degraded,
+      gateOverrode: r.gateOverrode, slackNotified: r.slackNotified
+    };
+    DataStore.track('triage_completed', {
+      company: payload.company, verdict: state.triage.verdict,
+      slackNotified: !!state.triage.slackNotified
+    });
+    toast(`Review complete · ${state.triage.verdict}` +
+      (state.triage.slackNotified ? ' · Slack alerted' : ''));
+  } else {
+    state.triage = { error: res.reason };
+    toast('Automated review unavailable — check the edge function is deployed');
+  }
+
+  if (btn) btn.disabled = false;
+  const box2 = document.getElementById('triageResult');
+  if (box2) box2.innerHTML = renderTriageResult(state.triage);
+}
 function startUpload(){
   if (state.processing) return;
   state.processing = true; state.progress = 0;
@@ -2077,6 +2545,20 @@ function buildTape(){
 
   setView(start);
   setTimeout(renderConcept, 30);
+
+  /* Connect to Supabase and swap bundled sample data for live rows.
+     Failure is non-fatal: the app stays on sample data and says so. */
+  DataStore.hydrate().then(()=>{
+    if (DATA_SOURCE === 'live'){
+      if (!TICKER_ORDER.includes(state.ticker)) state.ticker = TICKER_ORDER[0];
+      const t = state.ticker;
+      document.getElementById('coTick').textContent = t;
+      document.getElementById('coName').textContent = COMPANIES[t].short;
+      render();
+      DataStore.track('data_hydrated', { companies: TICKER_ORDER.length });
+      toast('Live data connected · ' + TICKER_ORDER.length + ' companies from Supabase');
+    }
+  }).catch(()=>{ /* sample data remains active */ });
 })();
 
 /* ==================================================================
