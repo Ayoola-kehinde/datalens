@@ -1,0 +1,52 @@
+{
+  "_comment": [
+    "Bubblewrap / TWA configuration for the DataLens Android APK.",
+    "The values below are the real build targets. Two MUST be changed before",
+    "generating a release APK: host and startUrl must point at your deployed",
+    "HTTPS origin, and the certificate fingerprint must match assetlinks.json.",
+    "See APK-BUILD.md for the exact procedure."
+  ],
+
+  "packageId": "com.datalens.pwa",
+  "host": "ayoola-kehinde.github.io",
+  "startUrl": "https://ayoola-kehinde.github.io/datalens",
+  "name": "DataLens — Investment Research",
+  "launcherName": "DataLens",
+  "display": "standalone",
+  "themeColor": "#0e1117",
+  "navigationColor": "#080a0e",
+  "backgroundColor": "#080a0e",
+  "iconUrl": "https://ayoola-kehinde.github.io/datalens/icons/icon-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "showTitleIfCentering": true,
+  "enableNotifications": false,
+  "launcherNameVisible": true,
+  "enableSplashScreen": true,
+  "showSpinnerUntilPwaLoaded": true,
+  "splashScreenAnimationDuration": 400,
+  "darkThemeColor": "#0e1117",
+  "lightThemeColor": "#f1f4f9",
+  "skipWaiting": true,
+  "appReadyUrl": "/datalens",
+
+  "splashScreen": {
+    "backgroundColor": "#080a0e",
+    "showSpinner": true,
+    "spinnerColor": "#2962ff"
+  },
+
+  "iconBackgroundColor": "#080a0e",
+
+  "_notes": {
+    "fallbackUrls": [
+      "https://ayoola-kehinde.github.io/datalens/offline.html"
+    ],
+    "whyTrustedWebActivity": [
+      "A TWA renders the installed PWA inside a verified Chrome WebView.",
+      "It requires assetlinks.json to match the APK signing certificate.",
+      "Without a matching fingerprint the app opens in a plain browser tab",
+      "with a warning banner — the app still works, it just loses the",
+      "standalone chrome and a small amount of startup performance."
+    ]
+  }
+}
