@@ -31,7 +31,7 @@ To test on a real phone, deploy to GitHub Pages first — see **[APK-BUILD.md](A
 | **`APK-BUILD.md`** | PWA + Android APK build guide, distribution options, troubleshooting |
 | **`index.html`** | The app. Installable PWA with 7 views, offline support, sample data |
 | **`design.html`** | Design system style guide — tokens, typography, states, components |
-| `manifest.webmanifest` | PWA manifest — name, icons, display mode, app shortcuts |
+| `manifest.json` | PWA manifest - name, icons, display mode, app shortcuts |
 | `sw.js` | Service worker — offline shell, update handling |
 | `offline.html` | Fallback page shown when the network is unreachable |
 | `icons/` | Generated app icons (192/384/512, maskable, apple-touch, favicon) |

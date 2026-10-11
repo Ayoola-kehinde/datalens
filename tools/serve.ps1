@@ -100,7 +100,7 @@ while ($listener.IsListening) {
     $ctype = if ($MIME.ContainsKey($ext)) { $MIME[$ext] } else { "application/octet-stream" }
 
     # Service workers and the manifest must never be served stale
-    $noCache = ($raw -eq "/sw.js") -or ($raw -eq "/manifest.webmanifest")
+    $noCache = ($raw -eq "/sw.js") -or ($raw -eq "/manifest.json") -or ($raw -eq "/config.js")
     $bytes = [System.IO.File]::ReadAllBytes($full)
 
     $res.ContentType = $ctype

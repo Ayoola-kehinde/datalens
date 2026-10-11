@@ -132,7 +132,7 @@ https://ayoola-kehinde.github.io/datalens/
 Click **Start**. It fetches and validates your manifest. You should see your
 name, icons, colours and standalone display mode all recognised.
 
-If anything looks wrong, stop here — fix `manifest.webmanifest` and push again
+If anything looks wrong, stop here — fix `manifest.json` and push again
 before continuing.
 
 ### Step 2 — check the service worker
@@ -145,7 +145,7 @@ https://ayoola-kehinde.github.io/datalens/sw.js
 ```
 
 The manifest must now be named `manifest.json` (renamed from
-`manifest.webmanifest`). PWA Builder reads the manifest linked from the
+`manifest.json`). PWA Builder reads the manifest linked from the
 `<link rel="manifest">` tag, so it will find it either way.
 
 ### Step 3 — build the APK
