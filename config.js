@@ -37,8 +37,8 @@
 window.DATALENS_CONFIG = {
 
   /* --- Supabase: Project Settings -> Data API --- */
-  SUPABASE_URL: "PASTE_YOUR_SUPABASE_PROJECT_URL_HERE",
-  SUPABASE_ANON_KEY: "PASTE_YOUR_SUPABASE_ANON_PUBLIC_KEY_HERE",
+  SUPABASE_URL: "https://mlnpssfposgmwsnjpmmm.supabase.co",
+  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1sbnBzc2Zwb3NnbXdzbmpwbW1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NDI0NzMsImV4cCI6MjEwNzIxODQ3M30.7p3x9NPMSRZ4xTFr9dYcBe-kgqej8VYAgoMb6o7ym0g",
 
   /* --- Edge function name (no URL path) --- */
   TRIAGE_FUNCTION: "triage"
