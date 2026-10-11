@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DataLens</string>
+    <string name="title_activity_main">DataLens</string>
+    <string name="package_name">com.datalens.app</string>
+    <string name="custom_url_scheme">com.datalens.app</string>
+</resources>

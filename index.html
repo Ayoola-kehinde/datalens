@@ -6,7 +6,7 @@
 <title>DataLens — Investment Research Platform (Prototype)</title>
 
 <!-- ===== PWA ===== -->
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0e1117">
 <meta name="color-scheme" content="dark light">
 <meta name="description" content="Turn complex company annual reports into clear, evidence-backed investment research.">
@@ -574,9 +574,20 @@ const PAGE = { is:38, bs:41, cf:52, notes:57, ratios:16, dividend:64, segment:31
 const DataStore = (function(){
 
   var cfg   = window.DATALENS_CONFIG || {};
-  var url   = cfg.SUPABASE_URL || "";
-  var anon  = cfg.SUPABASE_ANON_KEY || "";
-  var fnUrl = cfg.TRIAGE_FUNCTION || "triage";
+
+  /* --- Supabase project --- */
+  var url  = cfg.SUPABASE_URL || "";
+  var anon = cfg.SUPABASE_ANON_KEY || "";
+
+  /* --- Deployed Edge Function (explicit URL) ---
+     Supabase Edge Functions verify a JWT by default, so the anon key is
+     sent as a Bearer token plus the apikey header. If the function was
+     deployed with --no-verify-jwt the extra headers are simply ignored. */
+  var TRIAGE_URL =
+    (cfg.TRIAGE_URL && cfg.TRIAGE_URL.trim())
+      ? cfg.TRIAGE_URL.trim()
+      : (url ? url.replace(/\/+$/, "") + "/functions/v1/" + (cfg.TRIAGE_FUNCTION || "triage") : "");
+
   var client = null;
   var user   = null;
   var ready  = false;
@@ -585,13 +596,22 @@ const DataStore = (function(){
     if (warn) console.warn("[DataLens]", msg); else console.log("[DataLens]", msg);
   }
 
+  /* Placeholders must not be treated as real credentials. */
+  function isPlaceholder(v){
+    return !v || /PASTE_YOUR|YOUR-|<.*>|example/i.test(v);
+  }
+  function configured(){
+    return !isPlaceholder(url) && !isPlaceholder(anon);
+  }
+
   function init(){
     if (ready) return client;
+    if (!isPlaceholder(url) && !isPlaceholder(anon) && isPlaceholder(TRIAGE_URL)) url = "";
     if (!url || !anon){ log("no config.js — running on bundled sample data"); return null; }
 
     // config.js is committed with obvious placeholders. Treat an unfilled
     // value as "not configured" rather than attempting a doomed connection.
-    if (/PASTE_YOUR|YOUR-|<.*>|example/i.test(url) || /PASTE_YOUR|YOUR-|<.*>|example/i.test(anon)){
+    if (isPlaceholder(url) || isPlaceholder(anon)){
       log("config.js still has placeholder values — running on bundled sample data");
       return null;
     }
@@ -757,16 +777,46 @@ const DataStore = (function(){
     (map||{}).forEach && (map.forEach(function(c){ _idCache[c.ticker] = c.id; COMPANIES[c.ticker]._companyId = c.id; }));
   }
 
-  /* ---------- triage (Groq + Slack, both server-side) ---------- */
+  /* ---------- triage: Supabase Edge Function (Groq + Slack, server-side) ---------- */
   async function triage(payload){
-    var sb = init();
-    if (!sb) return { ok:false, reason:"Supabase not configured" };
+    if (!configured()){
+      return { ok:false, reason:"Supabase credentials are not configured in config.js" };
+    }
+    if (!TRIAGE_URL){
+      return { ok:false, reason:"No Edge Function URL resolved" };
+    }
+
+    const headers = {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      // Required when the function keeps JWT verification on (the default).
+      // Ignored harmlessly if it was deployed with --no-verify-jwt.
+      "apikey": anon,
+      "Authorization": "Bearer " + anon
+    };
+
     try {
-      var { data, error } = await sb.functions.invoke(fnUrl, { body: payload });
-      if (error) throw error;
-      return { ok:true, result:data };
+      const res = await fetch(TRIAGE_URL, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify(payload)
+      });
+
+      const text = await res.text();
+      let body = null;
+      try { body = text ? JSON.parse(text) : null; } catch(e){ /* non-JSON error page */ }
+
+      if (!res.ok){
+        // 401/403 almost always means the anon key is wrong or absent.
+        const hint = (res.status === 401 || res.status === 403)
+          ? " — the anon key is missing or invalid (Edge Functions verify a JWT by default)"
+          : "";
+        return { ok:false, reason:"Edge Function returned " + res.status + hint,
+                 status: res.status, body: body || text.slice(0,200) };
+      }
+      return { ok:true, result: body };
     } catch(e){
-      return { ok:false, reason: e.message || "triage function unreachable" };
+      return { ok:false, reason:"Could not reach the Edge Function: " + (e.message||e) };
     }
   }
 
@@ -844,7 +894,8 @@ const DataStore = (function(){
   return {
     init:init, hydrate:hydrate, fetchCompanies:fetchCompanies, isLive:isLive,
     fetchThesis:fetchThesis, saveThesis:saveThesis, triage:triage, track:track,
-    signIn:signIn, signUp:signUp, signOut:signOut, currentUser:currentUser
+    signIn:signIn, signUp:signUp, signOut:signOut, currentUser:currentUser,
+    triageUrl: TRIAGE_URL, configured: configured
   };
 })();
 

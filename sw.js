@@ -10,7 +10,7 @@
    Bump CACHE_VERSION on every release so old shells are evicted cleanly.
    ================================================================== */
 
-const CACHE_VERSION = 'datalens-v1';
+const CACHE_VERSION = 'datalens-v2';
 const SHELL_CACHE   = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
@@ -18,7 +18,8 @@ const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const PRECACHE_URLS = [
   './',
   './index.html',
-  './manifest.webmanifest',
+  './manifest.json',
+  './config.js',
   './icons/icon-192.png',
   './icons/icon-384.png',
   './icons/icon-512.png',
@@ -66,6 +67,10 @@ self.addEventListener('fetch', (event) => {
   // Never cache cross-origin traffic. Keeps third-party requests honest
   // and means an API token can never end up persisted on the device.
   if (url.origin !== self.location.origin) return;
+
+  // The Supabase Edge Function must never be cached. A stale triage
+  // verdict shown to a user is worse than an honest error.
+  if (url.pathname.indexOf('/functions/v1/') !== -1) return;
 
   /* Navigations: try the network so testers get updates, fall back to the
      cached shell so the app still opens with no connection. */

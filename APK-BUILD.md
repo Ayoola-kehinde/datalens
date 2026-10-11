@@ -1,20 +1,90 @@
 # Building the DataLens Android APK
 
-Two routes. **Route A needs nothing installed** and gets you a working APK today.
-Route B is for later, when you want a signing key you control.
+Two routes. **Route A is Capacitor** — a real native wrapper around the actual
+app code, with your own signing key and full Play Store readiness. **Route B is
+PWA Builder**, which needs nothing installed but produces a debug-signed APK
+with less control.
 
-| | **Route A — PWA Builder** | **Route B — Bubblewrap** |
+| | **Route A — Capacitor** | **Route B — PWA Builder** |
 |---|---|---|
-| Needs | A browser | Node, JDK, Android SDK |
-| Setup time | ~5 minutes | ~40 minutes |
-| Signing key | Google's debug key (yours to keep) | Your own keystore |
-| Play Store | ❌ not accepted | ✅ ready |
-| Good for | **Getting 2–3 testers onto it now** | Anything public-facing |
+| Needs | Node (installed) + Android Studio | A browser only |
+| Signing key | **Yours** | Google's debug key |
+| Play Store | ✅ ready | ❌ not accepted |
+| Gets native APIs later | ✅ (camera, filesystem, share) | ❌ |
+| Offline behaviour | Bundled assets | Depends on service worker |
+| Good for | **The real product** | A 5-minute smoke test |
 
-**Do Route A.** Route B only matters if you want the Play Store, and that's
-nowhere near the next milestone.
+**Do Route A.** It's already set up in this repo — `npx cap add android` has
+been run and `android/` is committed.
+
+> **A note on Capacitor vs a TWA.** The `twa-manifest.json` and
+> `.well-known/assetlinks.json` files still exist for the Bubblewrap path, but
+> with Capacitor you don't need Digital Asset Links: the app ships the web
+> assets inside the APK, so there is no domain-verification problem at all.
 
 ---
+
+## Route A — Capacitor (recommended)
+
+### What is already done
+
+- `@capacitor/core`, `@capacitor/cli`, `@capacitor/android` v8 installed
+- `capacitor.config.json` written — `com.datalens.app`, app name `DataLens`,
+  `webDir: "www"`
+- `android/` project generated and committed (source only; build output ignored)
+- `tools/sync-web.mjs` assembles the static app into `www/`
+
+### The loop you will actually use
+
+```powershell
+# 1. Edit the app at the repo root (index.html, sw.js, config.js, icons/)
+
+# 2. Assemble www/ from the root files
+npm run build
+
+# 3. Copy www/ into the Android project
+npx cap copy android
+
+# 4. Open in Android Studio
+npx cap open android
+```
+
+From Android Studio: **Build → Build Bundle(s) / APK(s) → Build APK(s)**.
+The debug APK lands at:
+
+```
+android\app\build\outputs\apk\debug\app-debug.apk
+```
+
+To skip Android Studio entirely once the toolchain is warm:
+
+```powershell
+npm run apk:build
+```
+
+### Before you build: install the Android toolchain
+
+```powershell
+winget install AndroidStudio          # bundles the SDK + JDK
+```
+
+Then open Android Studio once and let it finish SDK setup, or set
+`ANDROID_HOME` and add `platform-tools` to `PATH`.
+
+### First build checklist
+
+- [ ] `npm run build` reports 7 entries into `www/`
+- [ ] `npx cap copy android` reports "Copying web assets"
+- [ ] `npx cap open android` opens the project
+- [ ] Android Studio builds without SDK errors
+- [ ] APK installs on a real device: `adb install -r app-debug.apk`
+- [ ] App launches, all 7 tabs render, evidence drawer opens
+- [ ] Thesis edits survive an app restart
+- [ ] **Automated review** button is enabled (needs the anon key in `config.js`)
+
+---
+
+## Route B — PWA Builder (quick smoke test)
 
 ## Before either route: put the app on the web
 
@@ -73,6 +143,10 @@ the deployed `sw.js` isn't reachable. Confirm it loads:
 ```
 https://ayoola-kehinde.github.io/datalens/sw.js
 ```
+
+The manifest must now be named `manifest.json` (renamed from
+`manifest.webmanifest`). PWA Builder reads the manifest linked from the
+`<link rel="manifest">` tag, so it will find it either way.
 
 ### Step 3 — build the APK
 
@@ -145,9 +219,11 @@ Testers receive an email and install from a link.
 
 ---
 
-## Route B — Bubblewrap (later, when you need the Play Store)
+## Route B — Bubblewrap (alternative to Capacitor, only for TWA)
 
-Use this when you want a signing key you control, or Play Store release.
+Use this only if you specifically want a Trusted Web Activity — a Chrome-based
+WebView showing the **deployed site** rather than assets bundled in the APK.
+Capacitor is the better default because it needs no domain verification.
 
 ### Install the toolchain
 
@@ -170,7 +246,7 @@ java -version
 npm install -g @bubblewrap/cli
 
 bubblewrap init \
-  --manifest https://ayoola-kehinde.github.io/datalens/manifest.webmanifest
+  --manifest https://ayoola-kehinde.github.io/datalens/manifest.json
 ```
 
 It prints the exact `assetlinks.json` your APK needs. Paste that fingerprint into

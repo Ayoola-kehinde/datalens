@@ -1,0 +1,25 @@
+{
+  "name": "datalens",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DataLens — AI-powered investment research platform. Installable PWA and Android APK.",
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File tools\\serve.ps1",
+    "build": "node tools/sync-web.mjs",
+    "cap:sync": "npm run build && cap sync android",
+    "cap:copy": "npm run build && cap copy android",
+    "cap:open": "cap open android",
+    "apk:build": "npm run cap:sync && cd android && gradlew assembleDebug"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.0.0"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/android": "^8.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
