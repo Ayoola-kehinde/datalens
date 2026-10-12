@@ -10,7 +10,7 @@
    Bump CACHE_VERSION on every release so old shells are evicted cleanly.
    ================================================================== */
 
-const CACHE_VERSION = 'datalens-v2';
+const CACHE_VERSION = 'datalens-v3';
 const SHELL_CACHE   = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 

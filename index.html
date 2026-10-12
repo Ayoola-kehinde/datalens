@@ -820,14 +820,21 @@ const DataStore = (function(){
     }
   }
 
-  /* ---------- telemetry ---------- */
+  /* ---------- telemetry ----------
+     The events table requires an authenticated user_id (see the
+     events_insert RLS policy). Anonymous visitors cannot write, so do
+     not attempt it — otherwise every page load logs a 401 for a write
+     that was never going to be allowed. */
   function track(name, props){
     var sb = init(); if (!sb) return;
     try {
       var s = session();
-      var row = { name:name, properties:props||{} };
-      if (s) row.user_id = s.user.id;
-      sb.from("events").insert(row).then(function(){}, function(){});
+      if (!s || !s.user) return;          // not signed in - RLS would reject it
+      sb.from("events").insert({
+        user_id: s.user.id,
+        name: name,
+        properties: props || {}
+      }).then(function(){}, function(){});
     } catch(e){ /* telemetry must never throw */ }
   }
 
