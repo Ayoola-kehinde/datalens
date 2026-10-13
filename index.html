@@ -1549,7 +1549,7 @@ ROE        ${c.ticker} ${x.roe[4].toFixed(1)}%   vs peer average ${peers.reduce(
 Net margin ${c.ticker} ${x.netMargin[4].toFixed(1)}%   vs peer average ${peers.length?(peers.reduce((s,p)=>s+M(p).netMargin[4],0)/peers.length).toFixed(1):'—'}%
 P/E        ${c.ticker} ${xS(x.pe)}   vs peer average ${peers.length?xS(peers.reduce((s,p)=>s+M(p).pe,0)/peers.length):'—'}
 
-${c.m.costToIncome?`Cost-to-income is the sector-standard efficiency measure. ${c.ticker} at ${c.m.costToIncome[4].toFixed(1)}% against a peer average of ${peers.length?(peers.reduce((s,p)=>s+COMPANIES[p].m.costToIncome[4],0)/peers.length).toFixed(1):'—'}%.`:''}
+${c.m.costToIncome?`Cost-to-income is the sector-standard efficiency measure. ${c.ticker} at ${c.m.costToIncome[4].toFixed(1)}% against a peer average of ${(()=>{const withCti=peers.filter(p=>Array.isArray(COMPANIES[p].m.costToIncome)&&typeof COMPANIES[p].m.costToIncome[4]==='number');return withCti.length?(withCti.reduce((s,p)=>s+COMPANIES[p].m.costToIncome[4],0)/withCti.length).toFixed(1)+'%':'not available (no bank peer reports it)';})()}.`:''}
 
 Two cautions on peer comparison. First, accounting policies and fiscal year ends differ between companies, so a margin gap is not automatically an efficiency gap. Second, the peer set here is illustrative — in the real product you control which companies are included and can add or remove any of them.`,
       citations: cites };
@@ -1955,30 +1955,52 @@ function viewPeers(){
 
   let tbody = '<tbody>';
   metrics.forEach(mt=>{
-    const vals = [t].concat(peers).map(tt=>{
-      if (mt.k==='costToIncome') return COMPANIES[tt].m.costToIncome[4];
-      if (mt.k==='npl') return COMPANIES[tt].m.npl[4];
-      if (mt.k==='car') return COMPANIES[tt].m.car[4];
-      return M(tt)[mt.k];
-    });
+    /* Bank-only ratios live on `m` directly; everything else comes from
+       the metric engine. Several derived metrics (roe, netMargin, roa,
+       fcf, payout, revGrowth) are five-year ARRAYS, so the comparison
+       columns need the latest scalar — the sparkline further down still
+       plots the whole series.
+
+       A telco has no cost-to-income, NPL or capital adequacy, so those
+       cells are absent rather than zero. They render as an em dash and
+       are excluded from the peer average and rank rather than being
+       averaged in as a fabricated 0. */
+    const RAW = { costToIncome:1, npl:1, car:1 };
+    const last = YEARS.length - 1;
+    const cellValue = (tt, k)=>{
+      if (RAW[k]){
+        const s = COMPANIES[tt].m[k];
+        return Array.isArray(s) && typeof s[last] === 'number' && isFinite(s[last]) ? s[last] : null;
+      }
+      const v = M(tt)[k];
+      if (Array.isArray(v)) return typeof v[last] === 'number' && isFinite(v[last]) ? v[last] : null;
+      return (typeof v === 'number' && isFinite(v)) ? v : null;
+    };
+    const fmt = v => (v === null) ? '&mdash;' : mt.fmt(v);
+
+    const vals = [t].concat(peers).map(tt => cellValue(tt, mt.k));
     const self = vals[0];
-    const others = vals.slice(1);
-    const avgV = others.reduce((a,b)=>a+b,0)/others.length;
+    const others = vals.slice(1).filter(v => v !== null);
+    const avgV = (self !== null && others.length) ? others.reduce((a,b)=>a+b,0)/others.length : null;
     const better = (mt.k==='npl') ? 'lower' : 'higher';
-    const rank = others.filter(v => better==='lower' ? v>self : v<self).length;
-    const pctRank = Math.round((rank/others.length)*100);
+    const rank = (self === null || !others.length) ? null : others.filter(v => better==='lower' ? v>self : v<self).length;
+    const pctRank = (rank === null) ? null : Math.round((rank/others.length)*100);
     const sparkKey = mt.k==='roe'?'roe':mt.k==='netMargin'?'netMargin':mt.k==='pe'?null:mt.k;
-    const sparkVals = (sparkKey && M(t)[sparkKey]) ? M(t)[sparkKey].slice(-state.window) : null;
+    /* Only a series can be sparklined. M() returns scalars for pb and
+       divYield and has no key at all for the raw bank ratios, so the
+       value must be checked for being an array before slicing. */
+    const sparkSrc = sparkKey ? M(t)[sparkKey] : null;
+    const sparkVals = Array.isArray(sparkSrc) ? sparkSrc.slice(-state.window) : null;
     const color = (mt.k==='npl'||mt.k==='costToIncome') ? 'var(--danger-500)' : (mt.k==='car'?'var(--success-500)':'var(--secondary-500)');
 
     tbody += `<tr class="${t===state.ticker&&mt.k?'self':''}">
       <td>${esc(mt.label)} ${mt.market?'<span class="prov prov-market">mkt</span>':''}</td>`;
     vals.forEach((v,i)=>{
-      tbody += `<td class="num" style="${i===0?'font-weight:700':''}">${mt.fmt(v)}</td>`;
+      tbody += `<td class="num" style="${i===0?'font-weight:700':''}">${fmt(v)}</td>`;
     });
-    tbody += `<td class="num muted">${mt.fmt(avgV)}</td>
-      <td>${sparkVals?sparkline(sparkVals,color,70,20):'<span class="xs muted">—</span>'}</td>
-      <td class="num"><span class="badge ${pctRank>=60?BADGE.success:pctRank<=30?BADGE.warning:BADGE.neutral}">${pctRank}th</span></td>
+    tbody += `<td class="num muted">${fmt(avgV)}</td>
+      <td>${sparkVals?sparkline(sparkVals,color,70,20):'<span class="xs muted">&mdash;</span>'}</td>
+      <td class="num">${pctRank===null?'<span class="muted">&mdash;</span>':`<span class="badge ${pctRank>=60?BADGE.success:pctRank<=30?BADGE.warning:BADGE.neutral}">${pctRank}th</span>`}</td>
     </tr>`;
   });
   tbody += '</tbody>';
