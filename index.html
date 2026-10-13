@@ -437,8 +437,23 @@ tr.self td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
   </div>
 </header>
 
-<!-- ============ TICKER TAPE ============ -->
-<div class="ticker-tape"><div class="ticker-track" id="tape"></div></div>
+<!-- ============ TICKER TAPE (DISABLED) ============
+     Commented out rather than deleted so it can be reinstated in one step.
+
+     To re-enable, uncomment BOTH of these:
+       1. the <div class="ticker-tape"> below, and
+       2. the buildTape() call in the boot function (search "buildTape").
+
+     Both are required. buildTape() does
+     document.getElementById('tape').innerHTML with no null guard, and
+     the call sits outside boot()'s try/catch. With the div removed but
+     the call live, getElementById returns null, the TypeError escapes
+     boot(), and setView()/DataStore.hydrate() never run - the app
+     renders an empty shell.
+
+     The buildTape() function and all .ticker-* CSS are deliberately left
+     intact and unreferenced, so reinstating the tape needs no new code. -->
+<!-- <div class="ticker-tape"><div class="ticker-track" id="tape"></div></div> -->
 
 <!-- ============ APP SHELL ============ -->
 <div class="shell">
@@ -2602,7 +2617,9 @@ function buildTape(){
     const th = localStorage.getItem('datalens-theme');
     if (th==='light'){ document.documentElement.setAttribute('data-theme','light'); document.getElementById('themeBtn').textContent='◑'; }
   } catch(e){}
-  buildTape();
+  // buildTape();  // Ticker tape disabled. Its <div id="tape"> is commented out
+                  // in the markup above; re-enable the two together or this
+                  // throws and boot() never finishes. See the note there.
 
   /* Deep link support — manifest shortcuts open index.html?view=<name> */
   const KNOWN_VIEWS = ['snapshot','chat','signals','peers','changes','thesis','reports'];
