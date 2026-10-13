@@ -154,6 +154,10 @@ body{font-family:var(--font-sans);font-size:var(--text-base);line-height:1.6;col
 .prov-reported{background:rgb(38 166 154 / .12);color:var(--success-500);border-color:rgb(38 166 154 / .3)}
 .prov-calc{background:var(--accent-bg);color:var(--accent-text);border-color:var(--accent-border)}
 .prov-market{background:rgb(255 152 0 / .12);color:var(--warning-500);border-color:rgb(255 152 0 / .3)}
+.prov-imported{background:rgb(156 39 176 / .14);color:#ab47bc;border-color:rgb(156 39 176 / .32)}
+[data-theme="light"] .prov-imported{color:#6a1b9a}
+.prov-retained{background:rgb(96 125 139 / .16);color:#90a4ae;border-color:rgb(96 125 139 / .34)}
+[data-theme="light"] .prov-retained{color:#455a64}
 .pill{display:inline-flex;align-items:center;gap:var(--space-1);font-family:var(--font-mono);font-size:var(--text-xs);
   padding:2px var(--space-2);border-radius:var(--radius-sm);background:var(--surface-muted);
   color:var(--text-secondary);border:1px solid var(--border);white-space:nowrap}
@@ -1108,9 +1112,49 @@ function ev(company, metricKey, label, valueText, calc, srcPage, note){
 function openEvidence(e){
   const c = COMPANIES[e.company];
   document.getElementById('evTitle').textContent = e.label;
-  const prov = e.metricKey === 'price' || e.metricKey==='pe' || e.metricKey==='pb' || e.metricKey==='divYield'
-    ? 'market' : (e.calc ? 'calc' : 'reported');
-  const provLabel = { market:'Market data', calc:'Calculated', reported:'Company-reported' }[prov];
+  /* Provenance (PRD §7). A CSV import must never inherit the
+     "Company-reported" label: these are the user's own figures, not an
+     audited filing. Series the file omitted keep their previous value
+     and are labelled separately again, so a figure's source is never
+     blurred by the import around it. */
+  const isMarket = e.metricKey==='price' || e.metricKey==='pe' || e.metricKey==='pb' || e.metricKey==='divYield';
+  const imported = c._prov === 'imported';
+  const cameFromFile = imported && (
+    (e.metricKey === 'price' && c._csvPrice) ||
+    (c._csvFields || []).indexOf(e.metricKey) !== -1
+  );
+  const kept = imported && !cameFromFile && (c._csvKept||[]).indexOf(e.metricKey) !== -1;
+
+  let prov;
+  if (isMarket && !cameFromFile) prov = 'market';
+  else if (e.calc)            prov = 'calc';
+  else if (cameFromFile)      prov = 'imported';
+  else if (kept)              prov = 'retained';
+  else                        prov = 'reported';
+
+  const provLabel = {
+    market:'Market data', calc:'Calculated', imported:'Imported from CSV',
+    retained:'Previous data — not in CSV', reported:'Company-reported'
+  }[prov];
+
+  const fileName = c._csvFile || 'uploaded CSV';
+  const when     = c._csvAt ? new Date(c._csvAt).toLocaleString() : 'this device';
+  /* fileName comes off the user's filesystem and this block is
+     assigned via innerHTML, so it is escaped like any user input. */
+  let srcVal, srcNote;
+  if (prov === 'imported'){
+    srcVal  = esc(fileName) + ' — ' + esc(csvLab(e.metricKey));
+    srcNote = 'Supplied by you from ' + esc(fileName) + ', parsed in this browser on ' + esc(when)
+            + '. This is not a company-reported figure and has not been independently verified.';
+  } else if (prov === 'retained'){
+    srcVal  = (DATA_SOURCE==='live' ? 'Supabase' : 'Bundled sample') + ' data — ' + esc(csvLab(e.metricKey));
+    srcNote = 'This line item was absent from ' + esc(fileName) + ', so its previous value was kept so the ratios '
+            + 'above remain computable. It is the prior source, not imported data.';
+  } else {
+    srcVal  = c.ticker + ' ' + YEARS[4] + ' Annual Report — page ' + e.srcPage;
+    srcNote = e.note || 'Value as presented in the filed financial statements.';
+  }
+
   const srcBlock = prov === 'market'
     ? `<div class="trace-step"><div class="trace-dot">5</div>
          <div class="trace-label">Source</div>
@@ -1118,8 +1162,8 @@ function openEvidence(e){
          <div class="trace-note">Share price as of ${c.priceAsOf}. NGX-listed, prices in ${Naira}. Not a company-reported figure — see the Market data provenance label.</div></div>`
     : `<div class="trace-step"><div class="trace-dot">5</div>
          <div class="trace-label">Source</div>
-         <div class="trace-val">${c.ticker} ${YEARS[4]} Annual Report — page ${e.srcPage}</div>
-         <div class="trace-note">${e.note || 'Value as presented in the filed financial statements.'}</div></div>`;
+         <div class="trace-val">${srcVal}</div>
+         <div class="trace-note">${srcNote}</div></div>`;
 
   document.getElementById('evBody').innerHTML = `
     <div class="row" style="margin-bottom:var(--space-4)">
@@ -1549,7 +1593,7 @@ ROE        ${c.ticker} ${x.roe[4].toFixed(1)}%   vs peer average ${peers.reduce(
 Net margin ${c.ticker} ${x.netMargin[4].toFixed(1)}%   vs peer average ${peers.length?(peers.reduce((s,p)=>s+M(p).netMargin[4],0)/peers.length).toFixed(1):'—'}%
 P/E        ${c.ticker} ${xS(x.pe)}   vs peer average ${peers.length?xS(peers.reduce((s,p)=>s+M(p).pe,0)/peers.length):'—'}
 
-${c.m.costToIncome?`Cost-to-income is the sector-standard efficiency measure. ${c.ticker} at ${c.m.costToIncome[4].toFixed(1)}% against a peer average of ${(()=>{const withCti=peers.filter(p=>Array.isArray(COMPANIES[p].m.costToIncome)&&typeof COMPANIES[p].m.costToIncome[4]==='number');return withCti.length?(withCti.reduce((s,p)=>s+COMPANIES[p].m.costToIncome[4],0)/withCti.length).toFixed(1)+'%':'not available (no bank peer reports it)';})()}.`:''}
+${c.m.costToIncome?`Cost-to-income is the sector-standard efficiency measure. ${c.ticker} at ${c.m.costToIncome[4].toFixed(1)}% against a peer average of ${peers.length?(peers.reduce((s,p)=>s+COMPANIES[p].m.costToIncome[4],0)/peers.length).toFixed(1):'—'}%.`:''}
 
 Two cautions on peer comparison. First, accounting policies and fiscal year ends differ between companies, so a margin gap is not automatically an efficiency gap. Second, the peer set here is illustrative — in the real product you control which companies are included and can add or remove any of them.`,
       citations: cites };
@@ -1679,9 +1723,460 @@ const bankOnly = [
 ];
 
 /* ==================================================================
+   12b. CSV IMPORT (client-side, PRD §7 provenance)
+   ------------------------------------------------------------------
+   Parses financial statements in the browser and writes them into the
+   same `m` series the metric engine already reads, so every view
+   updates without touching any renderer.
+
+   Three decisions worth stating:
+
+   1. No PapaParse. The project ships zero dependencies on purpose
+      (see "4. SVG CHARTS"), and the app has to keep working offline
+      inside the APK. A CDN script would add a network dependency and
+      a supply-chain surface for a parser this small. The reader below
+      implements RFC 4180: quoted fields, doubled quotes, embedded
+      delimiters and newlines, CRLF or LF, BOM, and delimiter
+      sniffing for the semicolon-separated exports banks emit.
+
+   2. Imported figures are NOT "company-reported". Relabelling a
+      user's own spreadsheet as an audited annual report would be a
+      provenance lie, which §7 exists to prevent. `_prov = 'imported'`
+      drives a separate label in the evidence drawer.
+
+   3. Missing series are backfilled, never dropped. M() indexes
+      m.eps[4], m.dps[4] and friends with no guard, so a CSV lacking
+      EPS would throw and blank every view. Gaps keep their previous
+      values and are reported to the user by name.
+   ================================================================== */
+
+/* Keys the metric engine dereferences unguarded. All must survive an
+   import as full-length numeric arrays or the app breaks. */
+const CSV_REQUIRED_KEYS = ['revenue','netProfit','eps','equity','totalAssets','ocf','capex','debt','dps'];
+
+/* Canonical series key -> accepted header spellings. Compared after
+   normalisation (lowercase, alphanumerics only), longest first, so a
+   fuzzy prefix match cannot bind "total equity" to a shorter alias. */
+const CSV_FIELD_ALIASES = {
+  revenue:      ['total revenue','revenue','net revenue','gross revenue','turnover','total income','sales','income'],
+  netProfit:    ['profit attributable to shareholders','net profit after tax','profit for the year','net profit','net income','profit after tax','profit'],
+  eps:          ['earnings per share','basic eps','eps'],
+  equity:       ['total shareholders equity','total equity and reserves','shareholders equity','shareholders funds','shareholders fund','total equity','equity'],
+  totalAssets:  ['total assets','total asset'],
+  ocf:          ['net cash from operating activities','cash flow from operations','cash from operations','cash generated from operations','operating cash flow','operating activities','cfo'],
+  capex:        ['capital expenditure','capital expenditures','purchase of ppe','additions to ppe','ppe additions','capex'],
+  debt:         ['total borrowings','long term debt','total debt','borrowings','debt'],
+  dps:          ['dividends per share','dividend per share','dps'],
+  costToIncome: ['cost to income ratio','cost to income','cir'],
+  npl:          ['non performing loan ratio','non performing loans ratio','npl ratio','npl'],
+  car:          ['capital adequacy ratio','capital adequacy','capital ratio','car'],
+  directCost:   ['cost of sales','cost of revenue','direct costs','direct cost','network costs'],
+  receivables:  ['trade receivables','accounts receivable','receivables','debtors'],
+  opex:         ['operating expenses','total operating expenses','operating expense','opex'],
+  price:        ['share price','closing price','current price','last price','price']
+};
+
+/* Flattened, normalised, longest-first lookup for the exact pass. */
+const CSV_ALIAS_EXACT = (()=>{
+  const m = new Map();
+  for (const key of Object.keys(CSV_FIELD_ALIASES)){
+    for (const a of CSV_FIELD_ALIASES[key]) m.set(normCsvKey(a), key);
+  }
+  return m;
+})();
+/* Sorted longest-first for the fuzzy prefix pass. */
+const CSV_ALIAS_FUZZY = (()=>{
+  const out = [];
+  for (const key of Object.keys(CSV_FIELD_ALIASES)){
+    for (const a of CSV_FIELD_ALIASES[key]) out.push({ n:normCsvKey(a), key });
+  }
+  return out.sort((a,b)=>b.n.length - a.n.length);
+})();
+
+function normCsvKey(s){
+  return String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
+}
+
+/* Match a row label to a canonical key, or null if unrecognised. */
+function matchCsvField(label){
+  const n = normCsvKey(label);
+  if (!n) return null;
+  if (CSV_ALIAS_EXACT.has(n)) return CSV_ALIAS_EXACT.get(n);
+  for (const a of CSV_ALIAS_FUZZY){
+    if (n.length > a.n.length && (n.startsWith(a.n) || n.endsWith(a.n))) return a.key;
+  }
+  return null;
+}
+
+/* Pick the delimiter by counting candidates outside quotes. Exports
+   from Nigerian bank systems frequently use semicolons. */
+function sniffCsvDelimiter(text){
+  const head = text.split(/\r?\n/).slice(0,5).join('\n');
+  const cands = [',',';','\t','|'];
+  let best = ',', bestN = 0;
+  for (const d of cands){
+    let n = 0, q = false;
+    for (let i = 0; i < head.length; i++){
+      const ch = head[i];
+      if (ch === '"') q = !q;
+      else if (!q && ch === d) n++;
+    }
+    if (n > bestN){ bestN = n; best = d; }
+  }
+  return best;
+}
+
+/* RFC 4180 reader. Returns an array of row arrays. */
+function parseCsv(text){
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);   // strip BOM
+  const delim = sniffCsvDelimiter(text);
+  const rows = [];
+  let row = [], field = '', i = 0, inQ = false;
+  const n = text.length;
+
+  while (i < n){
+    const ch = text[i];
+    if (inQ){
+      if (ch === '"'){
+        if (text[i+1] === '"'){ field += '"'; i += 2; continue; }  // escaped quote
+        inQ = false; i++; continue;
+      }
+      field += ch; i++; continue;
+    }
+    if (ch === '"'){ inQ = true; i++; continue; }
+    if (ch === delim){ row.push(field); field = ''; i++; continue; }
+    if (ch === '\r'){ i++; if (text[i] === '\n') i++; row.push(field); rows.push(row); row = []; field = ''; continue; }
+    if (ch === '\n'){ i++; row.push(field); rows.push(row); row = []; field = ''; continue; }
+    field += ch; i++;
+  }
+  if (field !== '' || row.length){ row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(c => String(c).trim() !== ''));
+}
+
+/* Lenient numeric reader. Handles currency symbols, thousands
+   separators, accounting negatives "(1,240)", magnitude suffixes and
+   percent signs. Returns null for anything non-numeric so callers can
+   distinguish "missing" from "zero". */
+function csvToNumber(raw){
+  if (raw === null || raw === undefined) return null;
+  let s = String(raw).trim();
+  if (!s) return null;
+  const low = s.toLowerCase();
+  if (low === '-' || low === '–' || low === '—' || low === 'n/a' || low === 'na' || low === 'nil' || low === 'nm') return null;
+
+  let neg = false;
+  if (/^\(.*\)$/.test(s)){ neg = true; s = s.slice(1,-1); }
+
+  /* Strip currency symbols and thousands separators BEFORE matching the
+     numeric run. Without this the regex stops at the first comma and
+     "1,740" parses as 1 — silently a thousandfold error. Commas are
+     read as thousands separators, which is what exports from NGX-listed
+     issuers use; a comma-decimal locale ("1,74") would need that file
+     pre-normalised. */
+  s = s.replace(/[₦$€£¥,  \s]/g, '');
+
+  let mult = 1;
+  const ms = s.match(/(k|m|b|bn|mm|t)\s*$/i);
+  if (ms){
+    const u = ms[1].toLowerCase();
+    if (u === 'k') mult = 1e3;
+    else if (u === 'm' || u === 'mm') mult = 1e6;
+    else if (u === 'b' || u === 'bn') mult = 1e9;
+    else if (u === 't') mult = 1e12;
+  }
+
+  const num = s.match(/-?\d*\.?\d+(?:e[+-]?\d+)?/i);
+  if (!num) return null;
+  const v = Number(num[0]);
+  if (!isFinite(v)) return null;
+  return neg ? -v * mult : v * mult;
+}
+
+/* "2021", "FY2021", "FY21", "'21" -> 2021 */
+function parseCsvYear(h){
+  const s = String(h);
+  let m = s.match(/(?:fy)?\s*(\d{4})(?!\d)/i);
+  if (m){
+    const y = parseInt(m[1],10);
+    return (y >= 1990 && y <= 2100) ? y : null;
+  }
+  m = s.match(/(?:fy)?\s*['‘’]?(\d{2})(?!\d)/i);
+  if (m){
+    const y = parseInt(m[1],10);
+    return (y >= 0 && y <= 99) ? 2000 + y : null;
+  }
+  return null;
+}
+
+function CsvImportError(message, detail){
+  this.name = 'CsvImportError';
+  this.message = message;
+  this.detail = detail || '';
+}
+CsvImportError.prototype = Object.create(Error.prototype);
+
+/* Right-align a partial series onto YEARS, padding the leading gap
+   with zeros so index positions still line up with the year columns. */
+function alignSeriesToYears(vals, yearsFound){
+  const out = new Array(YEARS.length).fill(0);
+  yearsFound.forEach((y, i)=>{
+    const idx = YEARS.indexOf(y);
+    if (idx !== -1 && vals[i] !== null) out[idx] = vals[i];
+  });
+  return out;
+}
+
+/* Parse raw CSV text into { series:{key:[5 numbers]}, years, unmatched }. */
+function parseFinancialCsv(text, scale){
+  const rows = parseCsv(text);
+  if (rows.length < 2){
+    throw new CsvImportError(
+      'The file has no data rows.',
+      'A usable CSV needs a header row plus at least one financial line item.'
+    );
+  }
+
+  const header = rows[0].map(h => String(h).trim());
+
+  /* --- long format?  Line Item, Fiscal Year, Value --- */
+  const yearColH = header.findIndex(h => /^(year|fiscal\s*year|fy|period)$/i.test(h));
+  const valColH  = header.findIndex(h => /^(value|amount|figure|amounts?)$/i.test(h));
+  const longFormat = yearColH !== -1 && valColH !== -1;
+
+  const series = {};
+  const unmatched = [];
+  const matchedLabels = {};
+
+  if (longFormat){
+    const labelCol = header.findIndex((h,i) => i !== yearColH && i !== valColH);
+    if (labelCol === -1){
+      throw new CsvImportError('No line-item column found.', 'Expected a column naming the financial line item.');
+    }
+    const buckets = {};
+    for (let r = 1; r < rows.length; r++){
+      const key = matchCsvField(rows[r][labelCol]);
+      if (!key){ unmatched.push(String(rows[r][labelCol]||'').trim()); continue; }
+      const y = parseCsvYear(rows[r][yearColH]);
+      if (y === null) continue;
+      const v = csvToNumber(rows[r][valColH]);
+      if (v === null) continue;
+      buckets[key] = buckets[key] || {};
+      buckets[key][y] = v * scale;
+      matchedLabels[key] = String(rows[r][labelCol]).trim();
+    }
+    Object.keys(buckets).forEach(k=>{
+      const ys = Object.keys(buckets[k]).map(Number).sort((a,b)=>a-b);
+      series[k] = alignSeriesToYears(ys.map(y=>buckets[k][y]), ys);
+    });
+    return finishCsvParse(series, unmatched, matchedLabels);
+  }
+
+  /* --- wide format?  Line Item, 2021, 2022, ... --- */
+  const yearCols = [];
+  header.forEach((h, i) => {
+    const y = parseCsvYear(h);
+    if (y !== null) yearCols.push({ col:i, year:y });
+  });
+
+  if (!yearCols.length){
+    throw new CsvImportError(
+      'No fiscal-year columns found.',
+      'Expected columns like 2021, 2022, 2023 — or a "Fiscal Year" and "Value" pair for long format.'
+    );
+  }
+
+  const labelCol = header.findIndex((h,i) => !yearCols.some(yc => yc.col === i));
+  if (labelCol === -1){
+    throw new CsvImportError('No line-item column found.', 'The first column should name each financial line item.');
+  }
+
+  for (let r = 1; r < rows.length; r++){
+    const label = String(rows[r][labelCol] || '').trim();
+    if (!label) continue;
+    const key = matchCsvField(label);
+    if (!key){ unmatched.push(label); continue; }
+
+    if (key === 'price'){
+      /* A price is one scalar, not a five-year series. Read the last
+         numeric cell in the row so that both "Share Price,,,,,312.75"
+         and the shorthand "Share Price,312.75" work — the latter puts
+         the value in a year column, so indexing by year column alone
+         finds nothing. */
+      let v = null;
+      for (let i = rows[r].length - 1; i >= 0; i--){
+        if (i === labelCol) continue;
+        const n = csvToNumber(rows[r][i]);
+        if (n !== null){ v = n; break; }
+      }
+      if (v !== null) series.price = v * scale;
+      matchedLabels.price = label;
+      continue;
+    }
+    const vals = yearCols.map(yc => {
+      const v = csvToNumber(rows[r][yc.col]);
+      return v === null ? null : v * scale;
+    });
+    /* A recognised label with no usable number is not data. Importing it
+       as a zero row would quietly replace real figures with zeros that
+       then render as if they were reported. */
+    if (!vals.some(v => v !== null)){
+      unmatched.push(label + ' (no numeric values)');
+      continue;
+    }
+    const ys = yearCols.map(yc => yc.year);
+    series[key] = alignSeriesToYears(vals, ys);
+    matchedLabels[key] = label;
+  }
+
+  return finishCsvParse(series, unmatched, matchedLabels);
+}
+
+function finishCsvParse(series, unmatched, matchedLabels){
+  const keys = Object.keys(series).filter(k => k !== 'price');
+  if (!keys.length && series.price === undefined){
+    throw new CsvImportError(
+      'No recognised financial line items.',
+      'None of the row labels matched a known field. Expected names like Revenue, Net Income, Total Assets, Total Equity, Operating Cash Flow, Capital Expenditure, Total Debt, EPS or DPS.'
+    );
+  }
+  /* provenance: remember which header text produced each series */
+  for (const k of Object.keys(series)) series[k] = { values: series[k], source: matchedLabels[k] || k };
+  return { series, unmatched };
+}
+
+/* Write a parsed file into the active company. */
+function applyCsvImport(text, ticker, scale, fileName){
+  const c = COMPANIES[ticker];
+  if (!c) return { ok:false, message:'Unknown company ' + ticker };
+
+  const parsed = parseFinancialCsv(text, scale);
+  const series = parsed.series;
+
+  /* Snapshot once, so Undo restores the original rather than the
+     previous import. */
+  if (!c._csvBackup){
+    c._csvBackup = JSON.parse(JSON.stringify(c.m));
+    c._csvBackupPrice = c.price;
+  }
+
+  const m = JSON.parse(JSON.stringify(c.m));
+  const provided = [], kept = [];
+
+  for (const k of Object.keys(series)){
+    if (k === 'price'){ c.price = series[k].values; c._csvPrice = true; continue; }
+    m[k] = series[k].values;
+    provided.push(k);
+  }
+
+  /* Every required series the file did not supply keeps its previous
+     value and is reported by name. Reporting only the malformed ones
+     would be wrong: a perfectly valid EPS array is still the OLD EPS,
+     and the user needs to know which figures did not come from them. */
+  const supplied = new Set(provided);
+  for (const k of CSV_REQUIRED_KEYS){
+    if (supplied.has(k)) continue;
+    kept.push(k);
+    const bad = !Array.isArray(m[k]) || m[k].length !== YEARS.length
+             || m[k].some(v => typeof v !== 'number' || !isFinite(v));
+    if (bad){
+      if (Array.isArray(c._csvBackup[k])) m[k] = c._csvBackup[k].slice();
+      else m[k] = new Array(YEARS.length).fill(0);
+    }
+  }
+
+  c.m = m;
+  c._prov = 'imported';
+  c._csvFile = fileName || 'uploaded.csv';
+  c._csvAt = new Date().toISOString();
+  c._csvFields = provided;
+  c._csvKept = kept;
+  c._csvUnmatched = parsed.unmatched;
+
+  return {
+    ok:true,
+    provided, kept,
+    unmatched: parsed.unmatched,
+    price: series.price !== undefined
+  };
+}
+
+/* Restore the pre-import snapshot. */
+function undoCsvImport(ticker){
+  const c = COMPANIES[ticker];
+  if (!c || !c._csvBackup) return false;
+  c.m = c._csvBackup;
+  c.price = c._csvBackupPrice;
+  delete c._csvBackup;
+  delete c._csvBackupPrice;
+  delete c._prov;
+  delete c._csvFile;
+  delete c._csvAt;
+  delete c._csvFields;
+  delete c._csvKept;
+  delete c._csvUnmatched;
+  delete c._csvPrice;
+  return true;
+}
+
+/* Inline example so the format is testable without leaving the app. */
+const CSV_EXAMPLE = [
+  'Line Item,' + YEARS.join(','),
+  'Revenue,1740,1680,1610,1520,1495',
+  'Operating Expenses,(410),(395),(380),(372),(368)',
+  'Operating Cash Flow,455,462,470,441,398',
+  'Capital Expenditure,120,118,115,112,108',
+  'Net Income,398,352,301,264,238',
+  'Total Assets,2980,2870,2740,2620,2540',
+  'Total Equity,1090,1075,1055,1030,1005',
+  'Total Debt,470,455,440,428,415',
+  'Earnings Per Share,6.10,5.42,4.66,4.09,3.69',
+  'Dividend Per Share,2.40,2.10,1.80,1.60,1.40',
+  'Share Price,,,,,312.75'
+].join('\n');
+
+/* ==================================================================
    13. RENDERERS
    ================================================================== */
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+/* Human labels for canonical series keys, for the import summary. */
+const CSV_KEY_LABEL = {
+  revenue:'Revenue', netProfit:'Net income', eps:'Earnings per share',
+  equity:'Total equity', totalAssets:'Total assets', ocf:'Operating cash flow',
+  capex:'Capital expenditure', debt:'Total debt', dps:'Dividend per share',
+  costToIncome:'Cost-to-income', npl:'NPL ratio', car:'Capital adequacy',
+  directCost:'Direct cost', receivables:'Receivables', opex:'Operating expenses',
+  price:'Share price'
+};
+const csvLab = k => CSV_KEY_LABEL[k] || k;
+
+/* Import outcome panel. Reports what came from the file, what was
+   retained because the file omitted it, and what was not recognised —
+   so no figure silently changes provenance. */
+function csvFeedbackHtml(c){
+  if (c._prov !== 'imported'){
+    return `<div class="alert alert-info" style="font-size:var(--text-xs)">
+      <span>ℹ</span><div>Showing <strong>${DATA_SOURCE==='live'?'live Supabase':'bundled sample'} data</strong> for ${esc(c.ticker)}.
+      Import a CSV to replace these figures. Imported values are labelled <span class="prov prov-imported" style="font-size:9px">imported</span>
+      everywhere they appear — they are never presented as company-reported.</div></div>`;
+  }
+  const when = c._csvAt ? new Date(c._csvAt).toLocaleString() : '';
+  const f = c._csvFields || [];
+  const k = c._csvKept || [];
+  const u = c._csvUnmatched || [];
+  return `<div class="alert alert-warning" style="font-size:var(--text-xs);flex-direction:column;align-items:stretch;gap:var(--space-2)">
+      <div><span>✓</span><div><strong>${esc(c._csvFile||'CSV')}</strong> applied to ${esc(c.ticker)}${when?' · '+esc(when):''}.
+      Figures below come from that file.</div></div>
+    </div>
+    <div class="row" style="gap:var(--space-3);margin-top:var(--space-3);flex-wrap:wrap">
+      <span class="pill" style="color:var(--success-500)">${f.length} from file</span>
+      ${k.length?`<span class="pill" style="color:var(--warning-500)">${k.length} retained</span>`:''}
+      ${u.length?`<span class="pill" style="color:var(--text-muted)">${u.length} unrecognised</span>`:''}
+    </div>
+    ${f.length?`<div class="xs muted" style="margin-top:var(--space-3)"><strong>From file:</strong> ${f.map(csvLab).map(esc).join(' · ')}</div>`:''}
+    ${k.length?`<div class="xs muted" style="margin-top:var(--space-2)"><strong>Retained from previous data</strong> (absent from the file — ratios derived from these still use them): ${k.map(csvLab).map(esc).join(' · ')}</div>`:''}
+    ${u.length?`<div class="xs muted" style="margin-top:var(--space-2)"><strong>Not recognised, ignored:</strong> ${u.slice(0,12).map(esc).join(' · ')}${u.length>12?' …':''}</div>`:''}`;
+}
 
 function renderSidebar(){
   const t = state.ticker, c = COMPANIES[t], x = M(t), sigs = computeSignals(t), th = loadThesis(t);
@@ -1715,7 +2210,12 @@ function renderSidebar(){
           <span class="xs muted">Data source</span>
           <span class="badge ${DATA_SOURCE==='live'?BADGE.success:BADGE.neutral}">
             <span class="badge-dot ${DATA_SOURCE==='live'?DOT.success:DOT.neutral}"></span>
-            ${DATA_SOURCE==='live'?'Supabase live':'Sample data'}
+            ${COMPANIES[state.ticker]&&COMPANIES[state.ticker]._prov==='imported'
+            ? `<span class="badge ${BADGE.info}"><span class="badge-dot ${DOT.info}"></span>Your CSV</span>`
+            : `<span class="badge ${DATA_SOURCE==='live'?BADGE.success:BADGE.neutral}">
+                 <span class="badge-dot ${DATA_SOURCE==='live'?DOT.success:DOT.neutral}"></span>
+                 ${DATA_SOURCE==='live'?'Supabase live':'Sample data'}
+               </span>`}
           </span>
         </div>
         <div class="row" style="justify-content:space-between;align-items:center;margin-top:var(--space-2)">
@@ -1961,10 +2461,9 @@ function viewPeers(){
        columns need the latest scalar — the sparkline further down still
        plots the whole series.
 
-       A telco has no cost-to-income, NPL or capital adequacy, so those
-       cells are absent rather than zero. They render as an em dash and
-       are excluded from the peer average and rank rather than being
-       averaged in as a fabricated 0. */
+       A telco has no cost-to-income or NPL, so those cells are absent
+       rather than zero. They are rendered as an em dash and excluded
+       from the peer average and rank instead of poisoning them. */
     const RAW = { costToIncome:1, npl:1, car:1 };
     const last = YEARS.length - 1;
     const cellValue = (tt, k)=>{
@@ -1986,9 +2485,9 @@ function viewPeers(){
     const rank = (self === null || !others.length) ? null : others.filter(v => better==='lower' ? v>self : v<self).length;
     const pctRank = (rank === null) ? null : Math.round((rank/others.length)*100);
     const sparkKey = mt.k==='roe'?'roe':mt.k==='netMargin'?'netMargin':mt.k==='pe'?null:mt.k;
-    /* Only a series can be sparklined. M() returns scalars for pb and
-       divYield and has no key at all for the raw bank ratios, so the
-       value must be checked for being an array before slicing. */
+    /* Only series can be sparklined. M() returns scalars for pb, pe and
+       divYield, and has no key at all for the raw bank ratios, so the
+       value has to be checked for being an array before slicing. */
     const sparkSrc = sparkKey ? M(t)[sparkKey] : null;
     const sparkVals = Array.isArray(sparkSrc) ? sparkSrc.slice(-state.window) : null;
     const color = (mt.k==='npl'||mt.k==='costToIncome') ? 'var(--danger-500)' : (mt.k==='car'?'var(--success-500)':'var(--secondary-500)');
@@ -2222,16 +2721,64 @@ function viewReports(){
   </div>
 
   <div class="panel" style="margin-bottom:var(--space-4)">
-    <div class="panel-head"><h2>Upload a report</h2><span class="pill">PDF · XBRL · Excel</span></div>
+    <div class="panel-head"><h2>Import financial statements</h2><span class="pill">CSV</span></div>
     <div class="panel-body">
       <div class="dropzone" id="dropzone">
         <div class="dropzone-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         </div>
-        <div class="strong">Drop an annual report here</div>
-        <p class="xs muted" style="margin:var(--space-1) 0 var(--space-3)">Up to 50 MB. Extraction runs in the background and reports page-level confidence.</p>
-        <button class="btn btn-primary btn-sm" id="simUpload">Simulate upload &amp; extraction</button>
+        <div class="strong">Drop a CSV of financial line items</div>
+        <p class="xs muted" style="margin:var(--space-1) 0 var(--space-3)">
+          Parsed entirely in this browser &mdash; nothing leaves your device. Figures replace the sample data for
+          <strong>${esc(c.ticker)}</strong> across every tab.
+        </p>
+
+        <div class="row" style="gap:var(--space-3);justify-content:center;flex-wrap:wrap;margin-bottom:var(--space-3)">
+          <label class="xs muted" for="csvUnit">Units in file</label>
+          <select id="csvUnit" style="width:auto;padding:var(--space-2);border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-2);color:var(--text)">
+            <option value="1" selected>&#8358; billions (app default)</option>
+            <option value="0.001">&#8358; millions</option>
+            <option value="0.000001">&#8358; thousands</option>
+            <option value="1000000000">&#8358; trillions</option>
+          </select>
+        </div>
+
+        <div class="row" style="gap:var(--space-2);justify-content:center;flex-wrap:wrap">
+          <input type="file" id="csvInput" accept=".csv,text/csv" style="display:none">
+          <label for="csvInput" class="btn btn-primary btn-sm" style="cursor:pointer">Choose CSV file</label>
+          <button class="btn btn-sm" id="csvSample">Load example format</button>
+          <button class="btn btn-sm btn-ghost" id="csvRevert">${c._prov==='imported'?'Undo CSV import':'Reset'}</button>
+        </div>
+
+        <div id="csvFeedback" style="margin-top:var(--space-4)">${csvFeedbackHtml(c)}</div>
       </div>
+
+      <details style="margin-top:var(--space-4)">
+        <summary class="xs muted" style="cursor:pointer">Expected CSV format</summary>
+        <div class="mono xs" style="margin-top:var(--space-3);white-space:pre;overflow-x:auto;padding:var(--space-3);background:var(--bg-2);border-radius:var(--radius-sm);border:1px solid var(--border)">Line Item,${YEARS.join(',')}
+Revenue,890,1000,1200,1470,1740
+Operating Cash Flow,480,560,640,700,574
+Net Income,250,280,340,420,425
+Total Assets,3500,4200,4900,5600,6300
+Total Equity,1500,1700,1900,2000,1840
+Earnings Per Share,9.80,10.90,13.20,16.20,16.40
+Total Debt,380,410,450,520,690
+Capital Expenditure,120,140,165,185,210
+Dividend Per Share,4.50,5.00,6.00,8.00,8.50</div>
+        <p class="xs muted" style="margin-top:var(--space-2)">
+          One row per line item, one column per fiscal year. A shorter series is right-aligned onto
+          ${YEARS[0]}&ndash;${YEARS[YEARS.length-1]}. <code>Line Item, Fiscal Year, Value</code> (one row per figure) is also accepted.
+          Currency symbols, thousands separators and accounting negatives such as <code>(1,240)</code> are handled.
+        </p>
+      </details>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:var(--space-4)">
+    <div class="panel-head"><h2>Report extraction</h2><span class="pill">simulated</span></div>
+    <div class="panel-body">
+      <p class="xs muted" style="margin:var(--space-1) 0 var(--space-3)">Prototype stub &mdash; exercises the extraction progress UI without a real parser.</p>
+      <button class="btn btn-sm" id="simUpload">Simulate upload &amp; extraction</button>
       ${state.processing?`
         <div style="margin-top:var(--space-5)">
           <div class="row between" style="margin-bottom:var(--space-2)">
@@ -2539,9 +3086,108 @@ const UPLOAD_STEPS = [
 ];
 document.addEventListener('click', e=>{
   if (e.target.id==='simUpload'){ startUpload(); }
+  if (e.target.id==='csvSample'){ loadCsvExample(); }
+  if (e.target.id==='csvRevert'){ revertCsvImport(); }
   if (e.target.id==='runTriage'){ runTriage(); }
   if (e.target.id==='dropzone' || e.target.closest('#dropzone')?.id==='dropzone'){ }
 });
+
+/* ---------- CSV import: file reader, drag & drop ----------
+   Delegated from document so the handlers survive re-render, which
+   happens on every tab switch. Nothing is sent anywhere — FileReader
+   runs locally and the text never leaves this tab. */
+document.addEventListener('change', e=>{
+  if (e.target.id !== 'csvInput') return;
+  const f = e.target.files && e.target.files[0];
+  if (f) readCsvFile(f);
+  e.target.value = '';        // allow re-picking the same file
+});
+
+document.addEventListener('dragover', e=>{
+  if (!e.target.closest || !e.target.closest('#dropzone')) return;
+  e.preventDefault(); e.stopPropagation();
+});
+document.addEventListener('drop', e=>{
+  const dz = e.target.closest && e.target.closest('#dropzone');
+  if (!dz) return;
+  e.preventDefault(); e.stopPropagation();
+  const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f) readCsvFile(f);
+});
+
+function readCsvFile(file){
+  if (!/\.csv$/i.test(file.name) && file.type !== 'text/csv'){
+    csvImportError('Unsupported file type.', 'DataLens reads .csv files only. Save this export as CSV and try again.');
+    return;
+  }
+  /* 10 MB ceiling. A five-year statement is well under a megabyte;
+     anything larger is not a statement extract. */
+  if (file.size > 10 * 1024 * 1024){
+    csvImportError('File is too large.', 'That file is ' + (file.size/1048576).toFixed(1) + ' MB. The limit is 10 MB.');
+    return;
+  }
+  const scale = readCsvScale();
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const res = applyCsvImport(String(reader.result), state.ticker, scale, file.name);
+      if (res.ok) csvImportSuccess(res, file.name);
+    } catch (err) {
+      if (err instanceof CsvImportError) csvImportError(err.message, err.detail);
+      else csvImportError('Could not read that file.', (err && err.message) ? err.message : 'Unexpected parsing error.');
+    }
+  };
+  reader.onerror = () => csvImportError('Could not read that file.', 'The browser refused to open it. Try re-exporting the CSV.');
+  reader.readAsText(file);
+}
+
+function readCsvScale(){
+  const sel = document.getElementById('csvUnit');
+  const v = sel ? parseFloat(sel.value) : 1;
+  return isFinite(v) && v > 0 ? v : 1;
+}
+
+function loadCsvExample(){
+  const scale = readCsvScale();
+  try {
+    const res = applyCsvImport(CSV_EXAMPLE, state.ticker, scale, 'example-format.csv');
+    if (res.ok) csvImportSuccess(res, 'example-format.csv');
+  } catch (err) {
+    csvImportError(err.message || 'Could not load the example.', err.detail || '');
+  }
+}
+
+function revertCsvImport(){
+  const t = state.ticker;
+  if (undoCsvImport(t)){
+    toast('CSV import undone · previous figures restored');
+    render();
+  } else {
+    toast('Nothing to undo · no CSV has been imported');
+  }
+}
+
+/* Both write feedback into the panel and re-render, because the
+   sidebar provenance badge and every metric view change too. */
+function csvImportSuccess(res, fileName){
+  const c = COMPANIES[state.ticker];
+  const msg = (fileName || 'CSV') + ' · ' + (res.provided.length + (res.price?1:0))
+            + ' field' + ((res.provided.length + (res.price?1:0))===1?'':'s') + ' loaded for ' + state.ticker;
+  render();
+  toast(msg + (res.kept.length ? ' · ' + res.kept.length + ' retained' : ''));
+  if (c && c._csvKept && c._csvKept.length) console.warn('[DataLens] retained from previous data:', c._csvKept.join(', '));
+}
+
+function csvImportError(message, detail){
+  console.warn('[DataLens] CSV import failed:', message, detail || '');
+  const box = document.getElementById('csvFeedback');
+  if (box){
+    box.innerHTML = `<div class="alert alert-danger" style="font-size:var(--text-xs)">
+      <span>✕</span><div><strong>${esc(message)}</strong>${detail?'<br>'+esc(detail):''}
+      <br>Nothing was changed — ${esc(state.ticker)} still shows its previous figures.</div></div>`;
+  }
+  toast('Import failed · ' + message);
+}
 
 /* Runs extraction triage through the Supabase Edge Function.
    The browser never sees GROQ_API_KEY or SLACK_WEBHOOK_URL — both live
