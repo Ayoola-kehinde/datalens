@@ -1133,8 +1133,9 @@ function openEvidence(e){
   else                        prov = 'reported';
 
   const provLabel = {
-    market:'Market data', calc:'Calculated', imported:'Imported from CSV',
-    retained:'Previous data — not in CSV', reported:'Company-reported'
+    market:'Market data', calc:'Calculated',
+    imported: (DOC_KIND[c._csvKind] ? DOC_KIND[c._csvKind].label : 'Imported from CSV'),
+    retained:'Previous data — not in file', reported:'Company-reported'
   }[prov];
 
   const fileName = c._csvFile || 'uploaded CSV';
@@ -1797,10 +1798,26 @@ function normCsvKey(s){
   return String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
 }
 
+/* Line items that look like real metrics but must NOT be mapped to one.
+   Without this, the fuzzy prefix pass binds "Profit Before Tax" to
+   netProfit because it starts with "profit" — substituting a pre-tax
+   figure for a post-tax one and corrupting every derived margin. */
+const CSV_REJECT_LABELS = new Set([
+  'profitbeforetax','profitbeforetaxation','profitbeforedepreciation',
+  'operatingprofit','operatingincome','grossprofit','grossincome',
+  'ebit','ebitda','ebitdat','taxation','incometaxexpense','taxexpense',
+  'currentassets','currentliabilities','noncurrentassets','noncurrentliabilities',
+  'cashandcashequivalents','cashandequivalents','inventories','inventory',
+  'totalcurrentassets','totalcurrentliabilities','totalassetsandliabilities',
+  'netassets','netliabilities','sharecapital','sharepremium','reserves',
+  'retainedearnings','numberofshares','sharesoutstanding','employees','staffcost'
+]);
+
 /* Match a row label to a canonical key, or null if unrecognised. */
 function matchCsvField(label){
   const n = normCsvKey(label);
   if (!n) return null;
+  if (CSV_REJECT_LABELS.has(n)) return null;
   if (CSV_ALIAS_EXACT.has(n)) return CSV_ALIAS_EXACT.get(n);
   for (const a of CSV_ALIAS_FUZZY){
     if (n.length > a.n.length && (n.startsWith(a.n) || n.endsWith(a.n))) return a.key;
@@ -2044,6 +2061,48 @@ function finishCsvParse(series, unmatched, matchedLabels){
   return { series, unmatched };
 }
 
+/* Shared by the CSV and document paths: copy supplied series into the
+   company, guarantee every series M() dereferences is well-formed, and
+   report exactly which ones kept their previous value.
+
+   "Kept" has to cover EVERY series on the company that the file did not
+   supply, not just the nine the metric engine requires. Otherwise a bank
+   ratio the file omitted keeps its old number silently, is never listed
+   in the import summary, and is then labelled Company-reported in the
+   evidence drawer — a provenance lie about a figure nobody re-checked. */
+function mergeImportedSeries(c, series){
+  const m = JSON.parse(JSON.stringify(c.m));
+  const provided = [];
+
+  for (const k of Object.keys(series)){
+    if (k === 'price'){ c.price = series[k].values; c._csvPrice = true; continue; }
+    m[k] = series[k].values;
+    provided.push(k);
+  }
+
+  const supplied = new Set(provided);
+  const kept = [];
+  for (const k of Object.keys(m)){
+    if (supplied.has(k)) continue;
+    const prev = c._csvBackup[k];
+    if (Array.isArray(prev) && prev.length === YEARS.length
+        && prev.some(v => typeof v === 'number' && isFinite(v))) kept.push(k);
+  }
+
+  for (const k of CSV_REQUIRED_KEYS){
+    const bad = !Array.isArray(m[k]) || m[k].length !== YEARS.length
+             || m[k].some(v => typeof v !== 'number' || !isFinite(v));
+    if (bad){
+      const prev = c._csvBackup[k];
+      m[k] = (Array.isArray(prev) && prev.length === YEARS.length)
+           ? prev.slice() : new Array(YEARS.length).fill(0);
+    }
+  }
+
+  c.m = m;
+  return { provided, kept };
+}
+
 /* Write a parsed file into the active company. */
 function applyCsvImport(text, ticker, scale, fileName){
   const c = COMPANIES[ticker];
@@ -2059,42 +2118,19 @@ function applyCsvImport(text, ticker, scale, fileName){
     c._csvBackupPrice = c.price;
   }
 
-  const m = JSON.parse(JSON.stringify(c.m));
-  const provided = [], kept = [];
+  const merged = mergeImportedSeries(c, series);
 
-  for (const k of Object.keys(series)){
-    if (k === 'price'){ c.price = series[k].values; c._csvPrice = true; continue; }
-    m[k] = series[k].values;
-    provided.push(k);
-  }
-
-  /* Every required series the file did not supply keeps its previous
-     value and is reported by name. Reporting only the malformed ones
-     would be wrong: a perfectly valid EPS array is still the OLD EPS,
-     and the user needs to know which figures did not come from them. */
-  const supplied = new Set(provided);
-  for (const k of CSV_REQUIRED_KEYS){
-    if (supplied.has(k)) continue;
-    kept.push(k);
-    const bad = !Array.isArray(m[k]) || m[k].length !== YEARS.length
-             || m[k].some(v => typeof v !== 'number' || !isFinite(v));
-    if (bad){
-      if (Array.isArray(c._csvBackup[k])) m[k] = c._csvBackup[k].slice();
-      else m[k] = new Array(YEARS.length).fill(0);
-    }
-  }
-
-  c.m = m;
   c._prov = 'imported';
+  c._csvKind = 'csv';
   c._csvFile = fileName || 'uploaded.csv';
   c._csvAt = new Date().toISOString();
-  c._csvFields = provided;
-  c._csvKept = kept;
+  c._csvFields = merged.provided;
+  c._csvKept = merged.kept;
   c._csvUnmatched = parsed.unmatched;
 
   return {
     ok:true,
-    provided, kept,
+    provided: merged.provided, kept: merged.kept,
     unmatched: parsed.unmatched,
     price: series.price !== undefined
   };
@@ -2115,6 +2151,7 @@ function undoCsvImport(ticker){
   delete c._csvKept;
   delete c._csvUnmatched;
   delete c._csvPrice;
+  delete c._csvKind;
   return true;
 }
 
@@ -2133,6 +2170,661 @@ const CSV_EXAMPLE = [
   'Dividend Per Share,2.40,2.10,1.80,1.60,1.40',
   'Share Price,,,,,312.75'
 ].join('\n');
+
+/* ==================================================================
+   12d. DOCUMENT INGESTION — PDF text layer + image OCR
+   ------------------------------------------------------------------
+   Feeds the same \`m\` series the CSV path writes, so the seven views
+   need no changes at all.
+
+   Both engines are written inline rather than bundled:
+
+   PDF text uses DecompressionStream to inflate FlateDecode streams and
+   then walks the content stream's text-showing operators. pdf.js would
+   be roughly 350 KB before its worker, would have to be vendored to
+   survive offline and inside the APK, and for the narrow job of pulling
+   the text layer off a disclosure it is mostly overhead.
+
+   Images use a canvas pipeline — Otsu threshold, projection-profile
+   line and character segmentation, then template correlation against
+   glyphs rasterised at load time. That keeps the addition in the low
+   tens of KB. Be clear about what it is: it is a document-layout OCR,
+   not a general one. It reads clean, straight, front-facing scans and
+   digital exports well. Photographs of pages at an angle, low-contrast
+   photocopies, handwriting and heavy JPEG ringing will lose accuracy or
+   return nothing, and the UI says so rather than guessing.
+
+   Neither path sends anything anywhere. Both run in this tab.
+   ================================================================== */
+
+/* ---------- PDF: literal-string and operator scanning ---------- */
+function readPdfLiteralString(s, i){
+  let depth = 1, out = '', j = i + 1;
+  while (j < s.length && depth > 0){
+    const ch = s[j];
+    if (ch === '\\'){
+      const nx = s[j+1];
+      if (nx === 'n'){ out += '\n'; j += 2; continue; }
+      if (nx === 'r'){ out += '\r'; j += 2; continue; }
+      if (nx === 't'){ out += '\t'; j += 2; continue; }
+      if (nx === 'b'){ out += '\b'; j += 2; continue; }
+      if (nx === 'f'){ out += '\f'; j += 2; continue; }
+      if (nx === '\n'){ j += 2; continue; }                     // line continuation
+      if (nx === '(' || nx === ')' || nx === '\\'){ out += nx; j += 2; continue; }
+      const oct = /^[0-7]{1,3}/.exec(s.slice(j+1, j+4));        // \ddd octal
+      if (oct){ out += String.fromCharCode(parseInt(oct[0], 8)); j += 1 + oct[0].length; continue; }
+      out += nx; j += 2; continue;
+    }
+    if (ch === '('){ depth++; out += ch; j++; continue; }
+    if (ch === ')'){ depth--; j++; if (depth === 0) break; out += ch; continue; }
+    out += ch; j++;
+  }
+  return { text: out, next: j };
+}
+
+/* Pull display text out of one decompressed content stream.
+
+   Tracks the text baseline rather than treating every positioning
+   operator as a line break. Without that, a label and its figure laid
+   out with two Tm operators at the same Y — which is how a PDF writer
+   right-aligns a number in a statement — come out as separate lines,
+   and the label is then discarded for having no figure of its own.
+   Emitting a break only when Y actually moves keeps "Revenue" and
+   "1,740,250" on one line while still separating rows. */
+function pdfContentToText(content){
+  let out = '';
+  let i = 0;
+  const n = content.length;
+  let ops = [];
+  let curY = null;
+  let curX = null;
+
+  /* A move to a new baseline is a line break; a move along the same
+     baseline is columns, which needs a space or the label and figure
+     run together as "Revenue1,740,250". */
+  const moveTo = (x, y)=>{
+    const yk = y !== null && isFinite(y);
+    const xk = x !== null && isFinite(x);
+    if (yk && curY !== null){
+      if (Math.abs(y - curY) > 0.6) out += '\n';
+      else if (xk && curX !== null && Math.abs(x - curX) > 2) out += ' ';
+    }
+    if (yk) curY = y;
+    if (xk) curX = x;
+  };
+
+  while (i < n){
+    const ch = content.charCodeAt(i);
+
+    if (ch === 40){ const r = readPdfLiteralString(content, i); out += r.text; i = r.next; continue; }
+
+    if (ch === 60){                                   // '<' hex string or dict marker
+      const close = content.indexOf('>', i);
+      if (close === -1){ i++; continue; }
+      const inner = content.slice(i + 1, close).trim();
+      if (inner && inner.length % 2 === 0 && /^[0-9A-Fa-f\s]+$/.test(inner)){
+        let hex = '';
+        for (let k = 0; k < inner.length; k++) if (!/\s/.test(inner[k])) hex += inner[k];
+        let s = '';
+        for (let k = 0; k + 1 < hex.length; k += 2) s += String.fromCharCode(parseInt(hex.substr(k,2), 16));
+        out += s;
+      }
+      i = close + 1;
+      continue;
+    }
+
+    if ((ch >= 48 && ch <= 57) || ch === 45 || ch === 46){
+      let j = i;
+      while (j < n && /[0-9.\-]/.test(content[j])) j++;
+      const num = parseFloat(content.slice(i, j));
+      i = j;
+      let k = i;
+      while (k < n && /\s/.test(content[k])) k++;
+      /* A number sitting immediately before TJ is a kerning adjustment,
+         not a coordinate. A gap wider than about a space means the two
+         runs are separated on the page, so a space belongs between them. */
+      if (content[k] === 'T' && content[k+1] === 'J'){
+        if (num <= -120) out += ' ';
+      } else {
+        ops.push(num);
+      }
+      continue;
+    }
+
+    if (ch === 84){                                   // 'T' operators
+      const two = content.substr(i, 2);
+      if (two === 'Tj' || two === 'TJ'){ i += 2; ops = []; continue; }
+      if (two === 'Td' || two === 'TD'){ moveTo(curX === null ? null : curX + (ops[0] || 0), curY === null ? null : curY + (ops[1] || 0)); i += 2; ops = []; continue; }
+      if (two === 'Tm'){ moveTo(ops.length >= 6 ? ops[4] : null, ops.length >= 6 ? ops[5] : null); i += 2; ops = []; continue; }
+      if (two === 'T*'){ moveTo(curX, curY === null ? null : curY - 12); i += 2; ops = []; continue; }
+      i++; continue;
+    }
+    if (ch === 69 && content[i+1] === 'T'){ out += '\n'; curY = null; curX = null; ops = []; i += 2; continue; }   // ET
+    if (ch === 66 && content[i+1] === 'T'){ ops = []; i += 2; continue; }                               // BT
+
+    if (!/\s/.test(content[i])) ops = [];             // any other token ends the operand run
+    i++;
+  }
+  return out;
+}
+
+async function inflateBytes(bytes, format){
+  try {
+    const s = new Blob([bytes]).stream().pipeThrough(new DecompressionStream(format));
+    return new Uint8Array(await new Response(s).arrayBuffer());
+  } catch (e) { return null; }
+}
+
+function latin1(bytes){
+  let s = '';
+  const chunk = 0x8000;                               // avoid arg-count limits
+  for (let i = 0; i < bytes.length; i += chunk){
+    s += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return s;
+}
+
+/* Inflate the content streams and concatenate their text. Streams that
+   do not decompress, or that hold no text operators, are skipped —
+   that is how fonts and images fall out for free. */
+async function extractPdfText(arrayBuffer){
+  if (typeof DecompressionStream === 'undefined'){
+    throw new CsvImportError(
+      'This browser cannot decompress PDF streams.',
+      'PDF import needs DecompressionStream (Chrome 80+, Safari 16.4+, Firefox 113+). Try the CSV import instead.'
+    );
+  }
+  const bytes = new Uint8Array(arrayBuffer);
+  const s = latin1(bytes);
+
+  let idx = 0, found = 0, chunks = [];
+  while (true){
+    const si = s.indexOf('stream', idx);
+    if (si === -1) break;
+    if (s.slice(si - 3, si) === 'end'){ idx = si + 6; continue; }   // 'endstream'
+
+    const dict = s.slice(Math.max(0, si - 500), si);
+    let start = si + 6;
+    if (s[start] === '\r') start++;
+    if (s[start] === '\n') start++;
+    const ei = s.indexOf('endstream', start);
+    if (ei === -1) break;
+
+    if (/\/FlateDecode/.test(dict)){
+      /* Trust the declared /Length. Slicing to 'endstream' picks up the
+         EOL the writer put before it, and while zlib ignores trailing
+         bytes, DecompressionStream rejects the stream outright — which
+         surfaces as a bare "Failed to fetch". Fall back to trimming
+         whitespace when /Length is missing or indirect. */
+      let end = ei;
+      const lenM = dict.match(/\/Length\s+(\d+)(?!\s+\d+\s+R)/);
+      if (lenM){
+        const declared = parseInt(lenM[1], 10);
+        if (declared > 0 && start + declared <= bytes.length) end = start + declared;
+      }
+      while (end > start && (bytes[end-1] === 10 || bytes[end-1] === 13 || bytes[end-1] === 32)) end--;
+
+      const raw = bytes.subarray(start, end);
+      let out = await inflateBytes(raw, 'deflate');
+      if (!out) out = await inflateBytes(raw, 'deflate-raw');
+      if (out){
+        const flat = latin1(out);
+        if (/\bTj\b|\bTJ\b/.test(flat)){
+          found++;
+          chunks.push(pdfContentToText(flat));
+        }
+      }
+    }
+    idx = ei + 9;
+  }
+
+  if (!found){
+    throw new CsvImportError(
+      'No text layer found in this PDF.',
+      'This looks like a scanned document — the page is an image, not text. Save the page as PNG or JPG and import it as an image instead.'
+    );
+  }
+  return chunks.join('\n');
+}
+
+/* ---------- Image: binarise, segment, recognise ---------- */
+
+/* Otsu's method: pick the threshold that maximises between-class variance.
+   Chosen over a fixed cut because disclosure scans vary wildly in
+   contrast, and a fixed threshold loses whole rows on pale pages. */
+function otsuThreshold(gray){
+  const hist = new Uint32Array(256);
+  for (let i = 0; i < gray.length; i++) hist[gray[i]]++;
+  const total = gray.length;
+  let sum = 0;
+  for (let t = 0; t < 256; t++) sum += t * hist[t];
+  let sumB = 0, wB = 0, best = 0, bestVar = -1;
+  for (let t = 0; t < 256; t++){
+    wB += hist[t];
+    if (wB === 0) continue;
+    const wF = total - wB;
+    if (wF === 0) break;
+    sumB += t * hist[t];
+    const mB = sumB / wB, mF = (sum - sumB) / wF;
+    const between = wB * wF * (mB - mF) * (mB - mF);
+    if (between > bestVar){ bestVar = between; best = t; }
+  }
+  return best;
+}
+
+function binarizeImageData(data, w, h){
+  const gray = new Uint8Array(w * h);
+  let sum = 0;
+  for (let i = 0, p = 0; i < data.length; i += 4, p++){
+    const v = (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114) | 0;
+    gray[p] = v; sum += v;
+  }
+  /* Text is dark on light. A scan that is mostly dark — light type on a
+     filled background — would otherwise have its background read as the
+     entire page of text, so normalise polarity first. */
+  if (sum / gray.length < 110){
+    for (let i = 0; i < gray.length; i++) gray[i] = 255 - gray[i];
+  }
+  const thr = otsuThreshold(gray);
+  const bin = new Uint8Array(w * h);
+  for (let i = 0; i < gray.length; i++) bin[i] = gray[i] > thr ? 255 : 0;   // ink = 0
+  return { bin, thr };
+}
+
+/* Group runs of "this row/column has ink" into bands. */
+function runsFromProfile(profile, minLen){
+  const runs = [];
+  let start = -1;
+  for (let i = 0; i < profile.length; i++){
+    if (profile[i] > 0){
+      if (start === -1) start = i;
+    } else {
+      if (start !== -1 && i - start >= minLen){ runs.push([start, i - 1]); }
+      start = -1;
+    }
+  }
+  if (start !== -1 && profile.length - start >= minLen) runs.push([start, profile.length - 1]);
+  return runs;
+}
+
+function cropGlyph(bin, w, y0, y1, x0, x1){
+  const gh = y1 - y0 + 1, gw = x1 - x0 + 1;
+  const out = new Uint8Array(16 * 12);
+  for (let y = 0; y < 16; y++){
+    const sy = y0 + Math.floor(y * gh / 16);
+    for (let x = 0; x < 12; x++){
+      const sx = x0 + Math.floor(x * gw / 12);
+      const o = (sy * w + sx);
+      out[y * 12 + x] = (o >= 0 && o < bin.length && bin[o] === 0) ? 1 : 0;
+    }
+  }
+  return out;
+}
+
+function glyphInk(g){
+  let s = 0;
+  for (let i = 0; i < g.length; i++) s += g[i];
+  return s;
+}
+
+/* Cosine similarity over the binary feature vector. Cheap, and on
+   normalised 16x12 bitmaps it separates digits well enough. */
+function glyphSimilarity(a, b){
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++){
+    const x = a[i], y = b[i];
+    dot += x * y; na += x * x; nb += y * y;
+  }
+  if (na === 0 || nb === 0) return 0;
+  return dot / (Math.sqrt(na) * Math.sqrt(nb));
+}
+
+/* Glyph templates, rasterised once at first use across several faces so
+   a document set in a different face still correlates. Letters are
+   essential: the line-item labels are words, and a digits-only template
+   set scores "Revenue" against numeral shapes and returns punctuation
+   for every character. */
+let OCR_TEMPLATES = null;
+function buildOcrTemplates(){
+  if (OCR_TEMPLATES) return OCR_TEMPLATES;
+  const CHARS = '0123456789' +
+                'ABCDEFGHIJKLMNOPQRSTUVWXYZ' +
+                'abcdefghijklmnopqrstuvwxyz' +
+                '.,()%-—+/';
+  const fonts = ['bold 40px Arial', '40px Arial', 'bold 40px Georgia',
+                 '40px Georgia', 'bold 40px "Times New Roman"', '40px "Times New Roman"'];
+  const cv = document.createElement('canvas');
+  cv.width = 64; cv.height = 64;
+  const g = cv.getContext('2d', { willReadFrequently:true });
+  const out = [];
+  for (const ch of CHARS){
+    for (const font of fonts){
+      /* Opaque white, not clearRect. A transparent canvas has zero RGB
+         channels, which reads as pure black, so the whole tile looks like
+         solid ink and every template degenerates to a full-page box. */
+      g.fillStyle = '#fff';
+      g.fillRect(0,0,64,64);
+      g.fillStyle = '#000';
+      g.font = font;
+      g.textBaseline = 'alphabetic';
+      g.fillText(ch, 6, 46);
+      const img = g.getImageData(0,0,64,64).data;
+      const { bin } = binarizeImageData(img, 64, 64);
+      /* trim to the ink bounding box so position and padding in the
+         template do not bias the comparison against scanned glyphs */
+      let x0 = 64, y0 = 64, x1 = -1, y1 = -1;
+      for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++){
+        if (bin[y*64 + x] === 0){
+          if (x < x0) x0 = x; if (x > x1) x1 = x;
+          if (y < y0) y0 = y; if (y > y1) y1 = y;
+        }
+      }
+      if (x1 < 0 || x1 === x0 || y1 === y0) continue;
+      out.push({ ch, feat: cropGlyph(bin, 64, y0, y1, x0, x1) });
+    }
+  }
+  OCR_TEMPLATES = out;
+  return out;
+}
+
+/* Scale the image so a page of text lands near a workable glyph size.
+   Very small text is unreadable after 16x12 downsampling, very large
+   text pushes characters past the segmentation gap heuristics. */
+const OCR_TARGET_WIDTH = 1400;
+const OCR_MIN_LINE_INK = 2;
+
+/* Confidence floor for accepting a scanned read.
+
+   Measured on rendered samples, this recogniser reads digits correctly
+   about 45% of the time at best (1,740,250 came back as 1..9.859 in
+   Georgia), with mean match scores around 0.6-0.75 even when the text
+   IS correct. A wrong figure is far worse than no figure for a tool
+   whose whole premise is that every number is traceable and verified,
+   so the floor sits above what this engine actually achieves: it will
+   refuse rather than fabricate. Tesseract is the fix if that trade is
+   ever revisited — it is accurate, but costs roughly 15 MB of wasm and
+   language data and needs the network, which breaks both the offline
+   requirement and the lean-bundle one. */
+const OCR_MIN_CONFIDENCE = 0.88;
+
+function ocrImageCanvas(srcCanvas){
+  let canvas = srcCanvas;
+  let w = canvas.width, h = canvas.height;
+  let ctx = canvas.getContext('2d', { willReadFrequently:true });
+
+  /* Upscale a small scan before analysis. Downsampling to a 16x12
+     feature grid destroys small glyphs entirely, and disclosure scans
+     are routinely well under the width where the character is legible. */
+  if (w < OCR_TARGET_WIDTH){
+    const scale = OCR_TARGET_WIDTH / w;
+    const nc = document.createElement('canvas');
+    nc.width = Math.round(w * scale); nc.height = Math.round(h * scale);
+    const nctx = nc.getContext('2d', { willReadFrequently:true });
+    nctx.fillStyle = '#fff'; nctx.fillRect(0,0,nc.width,nc.height);
+    nctx.imageSmoothingEnabled = true;
+    nctx.imageSmoothingQuality = 'high';
+    nctx.drawImage(canvas, 0, 0, nc.width, nc.height);
+    canvas = nc; ctx = nctx; w = nc.width; h = nc.height;
+  }
+
+  const img = ctx.getImageData(0, 0, w, h);
+  const { bin, thr } = binarizeImageData(img.data, w, h);
+
+  /* Row projection -> text lines. Gaps inside a line of text are far
+     smaller than the gap between lines, so a floor of a couple of
+     inked rows separates them reliably. */
+  const rowProfile = new Uint32Array(h);
+  for (let y = 0; y < h; y++){
+    let c = 0;
+    for (let x = 0; x < w; x++) if (bin[y*w + x] === 0) c++;
+    rowProfile[y] = c;
+  }
+  const lines = runsFromProfile(rowProfile, OCR_MIN_LINE_INK);
+  const templates = buildOcrTemplates();
+
+  const outLines = [];
+  let scoreTotal = 0, scoredLines = 0;
+  for (const [ly0, ly1] of lines){
+    const lineH = ly1 - ly0 + 1;
+    const colProfile = new Uint32Array(w);
+    for (let y = ly0; y <= ly1; y++) for (let x = 0; x < w; x++) if (bin[y*w + x] === 0) colProfile[x]++;
+    /* Split on any gap. A threshold scaled to line height merges adjacent
+       letters at normal text sizes, because inter-letter spacing is only
+       a pixel or two while the glyphs are tens of pixels tall. */
+    const cols = runsFromProfile(colProfile, 1).filter(function(c){
+      const gw = c[1] - c[0] + 1;
+      return gw >= 2 && gw <= lineH * 3 && gw >= Math.max(2, lineH * 0.14);
+    });
+
+    let line = '';
+    let scoreSum = 0, scoreCount = 0;
+    for (let i = 0; i < cols.length; i++){
+      const cx0 = cols[i][0], cx1 = cols[i][1];
+      const feat = cropGlyph(bin, w, ly0, ly1, cx0, cx1);
+      if (glyphInk(feat) < 3) continue;
+      /* Word breaks are gaps, not glyphs — a space has no ink to match.
+         Insert one when the gap is wider than a typical letter gap. */
+      if (i > 0){
+        const gap = cx0 - cols[i-1][1] - 1;
+        const prevW = cols[i-1][1] - cols[i-1][0] + 1;
+        if (gap > Math.max(2, prevW * 0.55)) line += ' ';
+      }
+      let bestCh = '', bestScore = -1;
+      for (const t of templates){
+        const s = glyphSimilarity(feat, t.feat);
+        if (s > bestScore){ bestScore = s; bestCh = t.ch; }
+      }
+      scoreSum += bestScore; scoreCount++;
+      line += bestCh;
+    }
+    if (line.trim()) outLines.push(line.replace(/\s+/g,' ').trim());
+    if (scoreCount){ scoreTotal += scoreSum / scoreCount; scoredLines++; }
+  }
+  return {
+    text: outLines.join('\n'),
+    lines: outLines.length,
+    threshold: thr,
+    confidence: scoredLines ? scoreTotal / scoredLines : 0
+  };
+}
+
+/* ---------- Unified heuristic mapper for PDF text and OCR output ---------- */
+
+/* Pull every numeric token out of a line, keeping its position so a
+   label can be separated from the figure columns. */
+function figuresInLine(line){
+  const out = [];
+  const re = /\(?-?[₦$€£]?\s?\d[\d,]*(?:\.\d+)?\)?%?/g;
+  let m;
+  while ((m = re.exec(line)) !== null){
+    const raw = m[0];
+    const v = csvToNumber(raw);
+    if (v === null) continue;
+    out.push({ value: v, start: m.index, end: m.index + raw.length, raw });
+  }
+  return out;
+}
+
+function parseStatementText(text){
+  const lines = String(text).split(/\r?\n/).map(l => l.replace(/\s+/g,' ').trim()).filter(Boolean);
+  if (!lines.length) throw new CsvImportError('No readable text.', 'Nothing could be extracted from that file.');
+
+  /* An explicit year header pins the columns: "2025 2024 2023". Prefer
+     it, because guessing from the column count mis-assigns the year
+     when a statement carries a Note or "Restated" column. */
+  let headerYears = null;
+  for (const l of lines){
+    const years = (l.match(/\b(?:19|20)\d{2}\b/g) || []).map(Number).filter(y => y >= 1990 && y <= 2100);
+    if (years.length >= 2){
+      const uniq = [...new Set(years)];
+      if (uniq.length >= 2){ headerYears = uniq; break; }
+    }
+  }
+
+  const series = {};
+  const matched = {};
+  const unmatched = [];
+
+  for (const line of lines){
+    if (/^(page|table of contents|contents|auditor|independent)/i.test(line) && !figuresInLine(line).length) continue;
+    const figs = figuresInLine(line);
+    if (!figs.length) continue;
+
+    /* The label is whatever precedes the first figure. Trailing
+       separators and "N" thousands markers are stripped. */
+    let label = line.slice(0, figs[0].start);
+    label = label.replace(/[\s:.\-–—|(]+$/,'').replace(/^\s*\d+\s+|\bn\b\s*$/gi,'').trim();
+    if (!label || label.length < 3) continue;
+
+    const key = matchCsvField(label);
+    if (!key){ unmatched.push(label); continue; }
+
+    const values = figs.map(f => f.value);
+    let years = null;
+    /* No header: assume the figures are the most recent periods and
+       right-align them, which is how these statements are laid out. */
+    if (headerYears && values.length <= headerYears.length){
+      years = headerYears.slice(headerYears.length - values.length);
+    }
+    /* Wrapped to match the CSV path, so finishDocImport can treat both
+       identically — a bare array here silently produced undefined for
+       every imported series. */
+    series[key] = { values: alignSeriesToYearsRight(values, years), source: label };
+    matched[key] = label;
+  }
+
+  const found = Object.keys(series).filter(k => k !== 'price').length;
+  if (!found){
+    throw new CsvImportError(
+      'No recognisable financial line items.',
+      'Text was read from the file, but none of the labels matched Revenue, Net Income, Total Assets, Total Equity, EPS and similar. Scanned or low-contrast pages often need a sharper copy.'
+    );
+  }
+  return { series, unmatched, headerYears };
+}
+
+/* Right-align a run of values onto YEARS, optionally onto explicit
+   years when a header row supplied them. */
+function alignSeriesToYearsRight(values, years){
+  const out = new Array(YEARS.length).fill(0);
+  if (years && years.length === values.length){
+    values.forEach((v, i) => {
+      const idx = YEARS.indexOf(years[i]);
+      if (idx !== -1) out[idx] = v;
+    });
+    return out;
+  }
+  values.forEach((v, i) => {
+    const idx = YEARS.length - values.length + i;
+    if (idx >= 0) out[idx] = v;
+  });
+  return out;
+}
+
+/* ---------- Entry points ---------- */
+const DOC_KIND = {
+  csv:   { label:'Imported from CSV',   badge:'prov-imported' },
+  pdf:   { label:'Imported from PDF',   badge:'prov-imported' },
+  image: { label:'Imported from Image', badge:'prov-imported' }
+};
+
+async function ingestDocument(file, scale){
+  const name = (file.name || '').toLowerCase();
+  const isCsv  = /\.csv$/i.test(name)  || file.type === 'text/csv';
+  const isPdf  = /\.pdf$/i.test(name)  || file.type === 'application/pdf';
+  const isImg  = /\.(jpe?g|png)$/i.test(name) || /^image\//.test(file.type || '');
+
+  if (isCsv){
+    const text = await file.text();
+    const res  = applyCsvImport(text, state.ticker, scale, file.name);
+    if (res.ok){ res.kind = 'csv'; return res; }
+  }
+
+  if (isPdf){
+    let text;
+    try {
+      text = await extractPdfText(await file.arrayBuffer());
+    } catch (err) {
+      if (err instanceof CsvImportError) throw err;
+      throw new CsvImportError('Could not read that PDF.', (err && err.message) || 'Parsing failed.');
+    }
+    const parsed = parseStatementText(text);
+    return finishDocImport(parsed, 'pdf', file.name, scale, text);
+  }
+
+  if (isImg){
+    const bitmap = await fileToCanvas(file);
+    const ocr    = ocrImageCanvas(bitmap);
+    if (!ocr.lines){
+      throw new CsvImportError(
+        'No text found in that image.',
+        'Nothing was legible. Try a flatter, higher-contrast scan; a photo of a page at an angle is unlikely to read.'
+      );
+    }
+    /* Refuse rather than fabricate. See OCR_MIN_CONFIDENCE: the built-in
+       recogniser is not accurate enough to be trusted with figures, and
+       a silently wrong number is the one failure this app cannot have. */
+    if (ocr.confidence < OCR_MIN_CONFIDENCE){
+      throw new CsvImportError(
+        'Image text was not read confidently enough to trust.',
+        'This read scored ' + Math.round(ocr.confidence * 100) + '%, and figures need '
+        + Math.round(OCR_MIN_CONFIDENCE * 100) + '% before DataLens will use them. '
+        + 'Nothing was changed. Import the PDF or CSV version of this statement instead — those are read exactly, not guessed.'
+      );
+    }
+    const parsed = parseStatementText(ocr.text);
+    return finishDocImport(parsed, 'image', file.name, scale, ocr.text);
+  }
+
+  throw new CsvImportError(
+    'Unsupported file type.',
+    'DataLens reads .csv, .pdf, .jpg and .png. Re-export the statement in one of those formats.'
+  );
+}
+
+async function fileToCanvas(file){
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    await new Promise((res, rej) => {
+      img.onload = res;
+      img.onerror = () => rej(new CsvImportError('Could not open that image.', 'The browser failed to decode it. It may be corrupt or an unsupported variant.'));
+      img.src = url;
+    });
+    const cv = document.createElement('canvas');
+    cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+    cv.getContext('2d', { willReadFrequently:true }).drawImage(img, 0, 0);
+    return cv;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/* Shared tail for PDF and image: write the parsed series into the
+   active company, tagging provenance with the source document type. */
+function finishDocImport(parsed, kind, fileName, scale, rawText){
+  const c = COMPANIES[state.ticker];
+  if (!c._csvBackup){ c._csvBackup = JSON.parse(JSON.stringify(c.m)); c._csvBackupPrice = c.price; }
+
+  const merged = mergeImportedSeries(c, parsed.series);
+
+  c._prov = 'imported';
+  c._csvKind = kind;                       // csv | pdf | image
+  c._csvFile = fileName;
+  c._csvAt = new Date().toISOString();
+  c._csvFields = merged.provided;
+  c._csvKept = merged.kept;
+  c._csvUnmatched = parsed.unmatched;
+
+  return {
+    ok:true,
+    provided: merged.provided, kept: merged.kept,
+    unmatched: parsed.unmatched,
+    kind: kind,
+    chars: (rawText || '').length,
+    headerYears: parsed.headerYears || null
+  };
+}
 
 /* ==================================================================
    13. RENDERERS
@@ -2157,18 +2849,21 @@ function csvFeedbackHtml(c){
   if (c._prov !== 'imported'){
     return `<div class="alert alert-info" style="font-size:var(--text-xs)">
       <span>ℹ</span><div>Showing <strong>${DATA_SOURCE==='live'?'live Supabase':'bundled sample'} data</strong> for ${esc(c.ticker)}.
-      Import a CSV to replace these figures. Imported values are labelled <span class="prov prov-imported" style="font-size:9px">imported</span>
+      Import a CSV, PDF or image to replace these figures. Imported values are labelled
+      <span class="prov prov-imported" style="font-size:9px">imported</span>
       everywhere they appear — they are never presented as company-reported.</div></div>`;
   }
   const when = c._csvAt ? new Date(c._csvAt).toLocaleString() : '';
   const f = c._csvFields || [];
   const k = c._csvKept || [];
   const u = c._csvUnmatched || [];
+  const kindLabel = DOC_KIND[c._csvKind] ? DOC_KIND[c._csvKind].label : 'Imported';
   return `<div class="alert alert-warning" style="font-size:var(--text-xs);flex-direction:column;align-items:stretch;gap:var(--space-2)">
-      <div><span>✓</span><div><strong>${esc(c._csvFile||'CSV')}</strong> applied to ${esc(c.ticker)}${when?' · '+esc(when):''}.
+      <div><span>✓</span><div><strong>${esc(c._csvFile||'file')}</strong> applied to ${esc(c.ticker)}${when?' · '+esc(when):''}.
       Figures below come from that file.</div></div>
     </div>
     <div class="row" style="gap:var(--space-3);margin-top:var(--space-3);flex-wrap:wrap">
+      <span class="pill">${esc(kindLabel)}</span>
       <span class="pill" style="color:var(--success-500)">${f.length} from file</span>
       ${k.length?`<span class="pill" style="color:var(--warning-500)">${k.length} retained</span>`:''}
       ${u.length?`<span class="pill" style="color:var(--text-muted)">${u.length} unrecognised</span>`:''}
@@ -2727,10 +3422,11 @@ function viewReports(){
         <div class="dropzone-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         </div>
-        <div class="strong">Drop a CSV of financial line items</div>
+        <div class="strong">Drop a statement &mdash; CSV, PDF, JPG or PNG</div>
         <p class="xs muted" style="margin:var(--space-1) 0 var(--space-3)">
           Parsed entirely in this browser &mdash; nothing leaves your device. Figures replace the sample data for
           <strong>${esc(c.ticker)}</strong> across every tab.
+          PDFs are read from their text layer; images are read with a built-in scanner.
         </p>
 
         <div class="row" style="gap:var(--space-3);justify-content:center;flex-wrap:wrap;margin-bottom:var(--space-3)">
@@ -2744,17 +3440,17 @@ function viewReports(){
         </div>
 
         <div class="row" style="gap:var(--space-2);justify-content:center;flex-wrap:wrap">
-          <input type="file" id="csvInput" accept=".csv,text/csv" style="display:none">
-          <label for="csvInput" class="btn btn-primary btn-sm" style="cursor:pointer">Choose CSV file</label>
-          <button class="btn btn-sm" id="csvSample">Load example format</button>
-          <button class="btn btn-sm btn-ghost" id="csvRevert">${c._prov==='imported'?'Undo CSV import':'Reset'}</button>
+          <input type="file" id="csvInput" accept=".csv,.pdf,.jpg,.jpeg,.png,text/csv,application/pdf,image/jpeg,image/png" style="display:none">
+          <label for="csvInput" class="btn btn-primary btn-sm" style="cursor:pointer">Choose file</label>
+          <button class="btn btn-sm" id="csvSample">Load example CSV</button>
+          <button class="btn btn-sm btn-ghost" id="csvRevert">${c._prov==='imported'?'Undo import':'Reset'}</button>
         </div>
 
         <div id="csvFeedback" style="margin-top:var(--space-4)">${csvFeedbackHtml(c)}</div>
       </div>
 
       <details style="margin-top:var(--space-4)">
-        <summary class="xs muted" style="cursor:pointer">Expected CSV format</summary>
+        <summary class="xs muted" style="cursor:pointer">Expected formats &amp; limitations</summary>
         <div class="mono xs" style="margin-top:var(--space-3);white-space:pre;overflow-x:auto;padding:var(--space-3);background:var(--bg-2);border-radius:var(--radius-sm);border:1px solid var(--border)">Line Item,${YEARS.join(',')}
 Revenue,890,1000,1200,1470,1740
 Operating Cash Flow,480,560,640,700,574
@@ -2766,9 +3462,15 @@ Total Debt,380,410,450,520,690
 Capital Expenditure,120,140,165,185,210
 Dividend Per Share,4.50,5.00,6.00,8.00,8.50</div>
         <p class="xs muted" style="margin-top:var(--space-2)">
-          One row per line item, one column per fiscal year. A shorter series is right-aligned onto
-          ${YEARS[0]}&ndash;${YEARS[YEARS.length-1]}. <code>Line Item, Fiscal Year, Value</code> (one row per figure) is also accepted.
-          Currency symbols, thousands separators and accounting negatives such as <code>(1,240)</code> are handled.
+          <strong>CSV</strong> &mdash; one row per line item, one column per fiscal year. A shorter series is right-aligned onto
+          ${YEARS[0]}&ndash;${YEARS[YEARS.length-1]}. <code>Line Item, Fiscal Year, Value</code> (one row per figure) is also accepted.<br>
+          <strong>PDF</strong> &mdash; read from the text layer only. A scan saved as PDF has no text layer and will be refused with a prompt to
+          export the page as an image instead.<br>
+          <strong>JPG / PNG</strong> &mdash; read with a built-in scanner, not a machine-learning model. Be aware of the limit: it is accurate
+          enough to reject a scan it cannot read, but not accurate enough to be trusted with figures. Imports are refused unless the
+          read is unusually confident, so in practice <em>prefer the PDF or CSV</em>. A text-layer PDF is read exactly.<br>
+          Currency symbols, thousands separators and accounting negatives such as <code>(1,240)</code> are handled everywhere.
+          Verify every figure against the source document before relying on it.
         </p>
       </details>
     </div>
@@ -3115,30 +3817,43 @@ document.addEventListener('drop', e=>{
   if (f) readCsvFile(f);
 });
 
+/* 25 MB ceiling. A five-year statement is well under a megabyte as CSV
+   or a text PDF; a page scan lands around 2-5 MB. */
+const DOC_MAX_BYTES = 25 * 1024 * 1024;
+
 function readCsvFile(file){
-  if (!/\.csv$/i.test(file.name) && file.type !== 'text/csv'){
-    csvImportError('Unsupported file type.', 'DataLens reads .csv files only. Save this export as CSV and try again.');
+  const supported = /\.(csv|pdf|jpe?g|png)$/i.test(file.name);
+  if (!supported){
+    csvImportError('Unsupported file type.', 'DataLens reads .csv, .pdf, .jpg and .png. Re-export the statement in one of those formats.');
     return;
   }
-  /* 10 MB ceiling. A five-year statement is well under a megabyte;
-     anything larger is not a statement extract. */
-  if (file.size > 10 * 1024 * 1024){
-    csvImportError('File is too large.', 'That file is ' + (file.size/1048576).toFixed(1) + ' MB. The limit is 10 MB.');
+  if (file.size > DOC_MAX_BYTES){
+    csvImportError('File is too large.', 'That file is ' + (file.size/1048576).toFixed(1) + ' MB. The limit is 25 MB.');
     return;
   }
+  docImportBusy('Reading ' + file.name + '…');
   const scale = readCsvScale();
-  const reader = new FileReader();
-  reader.onload = () => {
-    try {
-      const res = applyCsvImport(String(reader.result), state.ticker, scale, file.name);
-      if (res.ok) csvImportSuccess(res, file.name);
-    } catch (err) {
+  ingestDocument(file, scale)
+    .then(res => { if (res && res.ok) docImportSuccess(res, file.name); })
+    .catch(err => {
       if (err instanceof CsvImportError) csvImportError(err.message, err.detail);
       else csvImportError('Could not read that file.', (err && err.message) ? err.message : 'Unexpected parsing error.');
-    }
-  };
-  reader.onerror = () => csvImportError('Could not read that file.', 'The browser refused to open it. Try re-exporting the CSV.');
-  reader.readAsText(file);
+    });
+}
+
+/* Progress feedback while a PDF or image is being decoded. Kept separate
+   from the outcome so a slow OCR run does not look like a failure. */
+function docImportBusy(label){
+  const box = document.getElementById('csvFeedback');
+  if (box) box.innerHTML = `<div class="alert alert-info" style="font-size:var(--text-xs)">
+    <span>⏳</span><div>${esc(label)} This stays on your device.</div></div>`;
+  const btn = document.querySelector('label[for="csvInput"]');
+  if (btn) btn.style.opacity = '.6';
+}
+
+function docImportDone(){
+  const btn = document.querySelector('label[for="csvInput"]');
+  if (btn) btn.style.opacity = '';
 }
 
 function readCsvScale(){
@@ -3151,7 +3866,7 @@ function loadCsvExample(){
   const scale = readCsvScale();
   try {
     const res = applyCsvImport(CSV_EXAMPLE, state.ticker, scale, 'example-format.csv');
-    if (res.ok) csvImportSuccess(res, 'example-format.csv');
+    if (res.ok) docImportSuccess(res, 'example-format.csv');
   } catch (err) {
     csvImportError(err.message || 'Could not load the example.', err.detail || '');
   }
@@ -3160,26 +3875,30 @@ function loadCsvExample(){
 function revertCsvImport(){
   const t = state.ticker;
   if (undoCsvImport(t)){
-    toast('CSV import undone · previous figures restored');
+    toast('Import undone · previous figures restored');
     render();
   } else {
-    toast('Nothing to undo · no CSV has been imported');
+    toast('Nothing to undo · nothing has been imported');
   }
 }
 
 /* Both write feedback into the panel and re-render, because the
    sidebar provenance badge and every metric view change too. */
-function csvImportSuccess(res, fileName){
+function docImportSuccess(res, fileName){
+  docImportDone();
   const c = COMPANIES[state.ticker];
-  const msg = (fileName || 'CSV') + ' · ' + (res.provided.length + (res.price?1:0))
-            + ' field' + ((res.provided.length + (res.price?1:0))===1?'':'s') + ' loaded for ' + state.ticker;
+  const n = res.provided.length + (res.price ? 1 : 0);
+  const kind = DOC_KIND[res.kind] ? DOC_KIND[res.kind].label : 'Imported';
+  const msg = (fileName || 'file') + ' · ' + n + ' field' + (n === 1 ? '' : 's') + ' from ' + state.ticker;
   render();
   toast(msg + (res.kept.length ? ' · ' + res.kept.length + ' retained' : ''));
   if (c && c._csvKept && c._csvKept.length) console.warn('[DataLens] retained from previous data:', c._csvKept.join(', '));
+  if (res.kind === 'image') console.info('[DataLens] OCR read ' + res.chars + ' characters; verify figures against the source document.');
 }
 
 function csvImportError(message, detail){
-  console.warn('[DataLens] CSV import failed:', message, detail || '');
+  docImportDone();
+  console.warn('[DataLens] import failed:', message, detail || '');
   const box = document.getElementById('csvFeedback');
   if (box){
     box.innerHTML = `<div class="alert alert-danger" style="font-size:var(--text-xs)">
